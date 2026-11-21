@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.1</title></head><body><div id="kv2" class="kv2">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.2</title></head><body><div id="kv2" class="kv2">
 <style>
 html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px solid #cdc1ae;border-radius:12px;padding:22px;background:#fffaf4}dialog label{display:block;margin:12px 0}dialog::backdrop{background:#40393066}.lock{position:fixed;inset:25% 10% auto;z-index:50}#kv2.kv2{height:100dvh;border:0;border-radius:0}#kv2 .draft{position:sticky;top:0;background:#fffaf4;z-index:2;padding:5px}
 #kv2{font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#453e35;background:#fff;border:1px solid #ddd3c5;border-radius:14px;overflow:hidden;position:relative;isolation:isolate;height:760px}
@@ -74,7 +74,7 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px sol
 }
 </style>
 <header class="bar">
-  <span class="brand">◉ Карта связей 2.1</span>
+  <span class="brand">◉ Карта связей 2.2</span>
   <button class="btn primary" data-act="new">＋ Человек</button>
   <button class="btn" data-act="link" id="kv2-link-btn">⇄ Связь</button>
   <button class="btn" data-act="label">T</button>
@@ -146,7 +146,7 @@ const roles=[
 ];
 const defaultSettings=()=>({
  bg:"#ffffff",grid:{on:false,dx:100,dy:100,color:"#c6c2bc",width:1,alpha:.5},
- rings:{on:false,step:180,color:"#b0a99d",width:1,alpha:.65,dash:""},
+ rings:{on:false,individual:false,radii:[],step:180,color:"#b0a99d",width:1,alpha:.65,dash:""},
  sectors:{on:false,weights:[1,1,1,1,1],labels:["Семья","Друзья","Работа","Учёба","Прочие"],color:"#8c8276",width:2,alpha:.7,dash:""}
 });
 const initial=()=>({
@@ -275,7 +275,7 @@ async function protectLocal(){
   clearTimeout(pendingSave);await enqueueSave(JSON.stringify(data),key,salt);
   vaultKey=key;vaultSalt=salt;dirty=false;
   // Earlier applications retain their own saved graphs.
-  renderRight();notify("Карта 2.1 зашифрована. Старые копии и экспорты сохраняют прежний формат.");
+  renderRight();notify("Карта зашифрована. Старые копии и экспорты сохраняют прежний формат.");
  }catch(e){notify(e.message);}finally{root.inert=false;}
 }
 async function loadStore(){
@@ -545,8 +545,10 @@ function ringsAndSectors(viewRange,background){
  const maxR=Math.max(...[[viewRange.left,viewRange.top],[viewRange.left,viewRange.bottom],[viewRange.right,viewRange.top],[viewRange.right,viewRange.bottom]].map(([x,y])=>Math.hypot(x,y)));
  if(ring.on||preview){
   const step=ring.step,skip=Math.max(1,Math.ceil(maxR/step/120));
-  for(let r=step*skip;r<=maxR;r+=step*skip){
-   background.push(`<circle cx="0" cy="0" r="${r}" fill="none" stroke="${ring.color}" stroke-width="${ring.width}" stroke-opacity="${ring.alpha}" ${ring.dash?`stroke-dasharray="${h(ring.dash)}"`:""}/>`);
+  const radii=ring.individual?ring.radii:Array.from({length:Math.floor(maxR/(step*skip))},(_,i)=>(i+1)*step*skip);
+  for(const r of radii){
+   if(r>maxR)break;
+   background.push(`<circle class="guide-ring" cx="0" cy="0" r="${r}" fill="none" stroke="${ring.color}" stroke-width="${ring.width}" stroke-opacity="${ring.alpha}" ${ring.dash?`stroke-dasharray="${h(ring.dash)}"`:""}/>`);
   }
  }
  if(sect.on||preview){
@@ -558,7 +560,7 @@ function ringsAndSectors(viewRange,background){
   weights.forEach((w,i)=>{
    background.push(`<path d="M 0 0 L ${reach*Math.cos(angle)} ${reach*Math.sin(angle)}" stroke="${sect.color}" stroke-width="${sect.width}" stroke-opacity="${sect.alpha}" fill="none" ${sect.dash?`stroke-dasharray="${h(sect.dash)}"`:""}/>`);
    const mid=angle+Math.PI*w/total;
-   const rr=ring.step*.65;
+   const rr=(ring.individual?ring.radii[0]:ring.step)*.65;
    background.push(`<text x="${rr*Math.cos(mid)}" y="${rr*Math.sin(mid)}" font-size="12" fill="${sect.color}" opacity="${sect.alpha}" text-anchor="middle" pointer-events="none">${h(labels[i]||"")}</text>`);
    angle+=2*Math.PI*w/total;
   });
@@ -978,7 +980,12 @@ function validate(raw){
    base.on=!!value.on;base.color=validColor(value.color,base.color);
    base.width=clamp(value.width,base.width,.2,10);base.alpha=clamp(value.alpha,base.alpha,0,1);
    if(key==="grid"){base.dx=clamp(value.dx,100,10,2000);base.dy=clamp(value.dy,100,10,2000);}
-   else if(key==="rings"){base.step=clamp(value.step,180,50,2000);base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);}
+   else if(key==="rings"){
+    if(value.radii!==undefined&&(!Array.isArray(value.radii)||value.radii.length>128||value.radii.some((r,i)=>!Number.isFinite(r)||r<1||r>100000||(i&&r<=value.radii[i-1]))))throw Error("Некорректный список радиусов окружностей");
+    base.radii=value.radii??[];
+    base.individual=value.individual===true;
+    if(base.individual&&!base.radii.length)throw Error("Не указан радиус окружности");
+    base.step=clamp(value.step,180,50,2000);base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);}
    else {
     base.weights=(Array.isArray(value.weights)?value.weights:[1,1,1,1,1]).slice(0,24).map(z=>clamp(z,1,.1,30));
     if(base.weights.length<2)base.weights=[1,1];
@@ -1025,8 +1032,10 @@ function groupPreview(){
   const days=dateDays(a);
   return days<=30?1:days<=180?2:days<=365?3:4;
  };
- const ring=n=>rb==="hops"?Math.min(5,dist.has(n.id)?Math.max(1,dist.get(n.id)):5):
+ const requestedRing=n=>rb==="hops"?Math.min(5,dist.has(n.id)?Math.max(1,dist.get(n.id)):5):
   rb==="importance"?Math.max(1,6-n.importance):rb==="contact"?recent(n):1;
+ const guides=data.settings.rings;
+ const ring=n=>guides.individual?Math.min(requestedRing(n),guides.radii.length):requestedRing(n);
  const maxRing=Math.max(1,...data.people.map(ring));
  const weights=categories.map(()=>1),step=data.settings.rings.step;
  const bins=new Map();
@@ -1042,7 +1051,8 @@ function groupPreview(){
  if(rootPerson&&!get(rootPerson).pinned)positions[rootPerson]={x:0,y:0};
  for(const [key,members] of bins){
   const [ci,ri]=key.split("|").map(Number),arc=2*Math.PI/categories.length;
-  const minAngle=-Math.PI/2+ci*arc,baseRadius=ri*step;
+  const minAngle=-Math.PI/2+ci*arc,baseRadius=guides.individual?guides.radii[ri-1]:ri*step;
+  const space=guides.individual?Math.min(baseRadius-(guides.radii[ri-2]??0),(guides.radii[ri]??2*baseRadius)-baseRadius):step;
   const maxSize=Math.max(...members.map(n=>n.size))+18;
   const capacity=Math.max(1,Math.floor(baseRadius*(arc*.85)/maxSize));
   const lanes=Math.ceil(members.length/capacity);
@@ -1052,8 +1062,8 @@ function groupPreview(){
    const lane=Math.floor(i/capacity),index=i%capacity;
    const inLane=Math.min(capacity,members.length-lane*capacity);
    const angle=minAngle+arc*(.08+.84*(index+.5)/inLane);
-   const laneOffset=(lane-(lanes-1)/2)*Math.min(maxSize*.9,step/(lanes+1));
-   const radius=Math.max(25,baseRadius+laneOffset);
+   const laneOffset=(lane-(lanes-1)/2)*Math.min(maxSize*.9,space/(lanes+1));
+   const radius=Math.max(guides.individual?1:25,baseRadius+laneOffset);
    positions[n.id]={x:Math.cos(angle)*radius,y:Math.sin(angle)*radius};
   });
  }
@@ -1094,6 +1104,38 @@ function settingInput(path,label,value,type="number",attrs=""){
 function settingToggle(path,label,checked){
  return `<label><input type="checkbox" data-setting="${path}" ${checked?"checked":""}> ${label}</label>`;
 }
+function ringControls(rings){
+ let html=settingToggle("rings.individual","Задать радиус каждой окружности",rings.individual);
+ if(!rings.individual)return html+settingInput("rings.step","Расстояние между окружностями",rings.step,"number",'min="50" max="2000"');
+ html+='<p class="muted">Радиус отсчитывается от центра карты. Введите значения по возрастанию. При группировке лишние уровни попадут на внешнее кольцо.</p>';
+ html+=settingInput("rings.count","Количество окружностей",rings.radii.length,"number",'min="1" max="128" step="1"');
+ return html+rings.radii.map((r,i)=>settingInput("radius."+i,"Радиус "+(i+1),r,"number",'min="1" max="100000" step="any"')).join("");
+}
+function changeRingSetting(el){
+ const rings=data.settings.rings,path=el.dataset.setting;
+ let radii=[...rings.radii],individual=rings.individual;
+ if(path==="rings.individual"){
+  individual=el.checked;
+  if(individual&&!radii.length)radii=[rings.step,2*rings.step,3*rings.step];
+ }else if(path==="rings.count"){
+  const count=el.valueAsNumber;
+  if(!Number.isInteger(count)||count<1||count>128){notify("Введите целое количество от 1 до 128");renderRight();return;}
+  radii=radii.slice(0,count);
+  const extra=count-radii.length,start=radii.at(-1)??0;
+  const gap=Math.min(rings.step,(100000-start)/Math.max(1,extra));
+  for(let i=1;i<=extra;i++)radii.push(start+i*gap);
+ }else{
+  const index=Number(path.slice(7));
+  radii[index]=el.valueAsNumber;
+ }
+ if(radii.some((r,i)=>!Number.isFinite(r)||r<1||r>100000||(i&&r<=radii[i-1]))){
+  notify("Радиусы должны возрастать от 1 до 100000. При нехватке места уменьшите внешний радиус.");
+  renderRight();return;
+ }
+ remember("Изменены радиальные окружности");
+ Object.assign(rings,{individual,radii});
+ preview=null;previewInfo=null;finish();renderRight();
+}
 function renderRight(){
  if(!pane)return;
  const out=$("kv2-right-body"),s=data.settings,f=data.filters;
@@ -1106,7 +1148,7 @@ function renderRight(){
      <div class="pair">${settingInput(key+".color","Цвет",v.color,"color")}${settingInput(key+".width","Толщина",v.width,"number",'min=".2" max="10" step=".2"')}</div>
      ${settingInput(key+".alpha","Непрозрачность",v.alpha,"number",'min="0" max="1" step=".05"')}`;
    if(key==="grid")html+=`<div class="pair">${settingInput("grid.dx","Ширина клетки",v.dx,"number",'min="10" max="2000"')}${settingInput("grid.dy","Высота клетки",v.dy,"number",'min="10" max="2000"')}</div>`;
-   if(key==="rings")html+=`${settingInput("rings.step","Расстояние между кольцами",v.step,"number",'min="50" max="2000"')}${settingInput("rings.dash","Пунктир (8 5), пусто = сплошная",v.dash,"text")}`;
+   if(key==="rings")html+=`${ringControls(v)}${settingInput("rings.dash","Пунктир (8 5), пусто = сплошная",v.dash,"text")}`;
    if(key==="sectors"){
     html+=`${settingInput("sectors.count","Количество секторов",v.weights.length,"number",'min="2" max="24"')}${settingInput("sectors.dash","Пунктир",v.dash,"text")}`;
     v.weights.forEach((w,i)=>{
@@ -1133,7 +1175,7 @@ function renderRight(){
     <label class="field">Разделение по секторам<select data-group="sectorBy">${selectHtml([["category","Категория знакомства"],["city","Город проживания"],["job","Профессия"],["tag","Первый тег человека"]],data.group.sectorBy)}</select></label>
     <label class="field">Размещение по окружностям<select data-group="ringBy">${selectHtml([["hops","Число связей от центрального человека"],["importance","Важность (1–5)"],["contact","Время с последнего общения"],["none","Одна окружность"]],data.group.ringBy)}</select></label>
     <label class="field">Центральный человек<select data-filter="focus">${opt("","Первый человек",f.focus)}${data.people.map(n=>opt(n.id,full(n),f.focus)).join("")}</select></label>
-    ${settingInput("rings.step","Шаг окружностей",s.rings.step,"number",'min="50" max="2000"')}
+    ${ringControls(s.rings)}
     <p class="muted">Для категорий используются заданные категории карточек, для колец — выбранная числовая характеристика. Узлы распределяются пакетно по секторам и кольцам.</p>`;
   if(preview)html+=`<div class="box"><b>Предпросмотр построен</b><p>Групп: ${previewInfo.labels.length}. Кольцевых уровней: ${previewInfo.maxRing}. Возможные пересечения: ${previewInfo.collisions}.</p>
     <div class="controls"><button class="btn primary" data-act="apply-group">Применить</button><button class="btn" data-act="cancel-group">Отменить</button></div></div>`;
@@ -1158,6 +1200,7 @@ function renderRight(){
 }
 function updateSetting(el){
  const path=el.dataset.setting;if(!path)return;
+ if(path==="rings.individual"||path==="rings.count"||path.startsWith("radius.")){changeRingSetting(el);return;}
  let val=el.type==="checkbox"?el.checked:el.value;
  remember("Изменены настройки");
  if(path==="timeline")data.filters.timeline=!!val;

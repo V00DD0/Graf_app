@@ -1,7 +1,7 @@
 name: Windows launcher and browser
 on:
   push:
-    branches: [qa/windows-launcher-2.1]
+    branches: [feature/individual-rings-2.2]
   workflow_dispatch:
 env:
   PYTHONUTF8: '1'
@@ -27,3 +27,5 @@ jobs:
           python -m pip install playwright
           $env:CHROMIUM = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
           python test-browser.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python test-rings.py

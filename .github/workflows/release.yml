@@ -1,0 +1,31 @@
+name: Signed Android release
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  build:
+    environment: android-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Sign with the release certificate
+        env:
+          KARTA_KEY_BASE64: ${{ secrets.KARTA_KEY_BASE64 }}
+          KARTA_KEY_PASSWORD: ${{ secrets.KARTA_KEY_PASSWORD }}
+          KARTA_CERT_SHA256: ${{ vars.KARTA_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export KARTA_KEYSTORE="$RUNNER_TEMP/release.p12" KARTA_PASSFILE="$RUNNER_TEMP/keypass"
+          trap 'rm -f "$KARTA_KEYSTORE" "$KARTA_PASSFILE"' EXIT
+          printf %s "${KARTA_KEY_BASE64:?}" | base64 -d > "$KARTA_KEYSTORE"
+          printf %s "${KARTA_KEY_PASSWORD:?}" > "$KARTA_PASSFILE"
+          bash android/build-test.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Karta-2.4-release
+          path: Karta-2.4.apk

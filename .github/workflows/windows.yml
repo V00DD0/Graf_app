@@ -1,7 +1,7 @@
 name: Windows launcher and browser
 on:
   push:
-    branches: [feature/views-and-calls-2.3]
+    branches: [feature/workspaces-2.4]
   workflow_dispatch:
 env:
   PYTHONUTF8: '1'
@@ -31,17 +31,22 @@ jobs:
           python test-rings.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python test-views-calls.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python test-workspaces.py
       - name: Package desktop app
         shell: pwsh
-        run: Compress-Archive Karta.exe,Karta-2.1.html Karta-2.3-Windows.zip
+        run: Compress-Archive Karta.exe,Karta-2.1.html Karta-2.4-Windows.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: Karta-2.3-Windows
-          path: Karta-2.3-Windows.zip
+          name: Karta-2.4-Windows
+          path: Karta-2.4-Windows.zip
   android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python3 build.py && git diff --exit-code -- Karta-2.1.html
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -49,8 +54,8 @@ jobs:
       - run: bash android/build-test.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Karta-2.3-Android
-          path: Karta-2.3-test.apk
+          name: Karta-2.4-Android
+          path: Karta-2.4-test.apk
       - name: Enable hardware acceleration for the test emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

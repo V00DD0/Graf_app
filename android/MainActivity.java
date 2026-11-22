@@ -60,17 +60,18 @@ public final class MainActivity extends Activity {
     private void message(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
     private void js(String script){if(!isDestroyed()&&PAGE.equals(editor.getUrl()))editor.evaluateJavascript(script,null);}
     public final class Bridge {
+        @JavascriptInterface public String normalizePhone(String number){return canonical(number,phoneRegion());}
         @JavascriptInterface public void pickPhone(boolean withCalls){
             runOnUiThread(()->{
                 countAfterPick=withCalls;
                 try{startActivityForResult(new Intent(Intent.ACTION_PICK,Phone.CONTENT_URI),PICK);}
-                catch(ActivityNotFoundException e){message("Приложение контактов недоступно");}
+                catch(RuntimeException e){js("window.kartaPickCancelled()");message("Приложение контактов недоступно");}
             });
         }
         @JavascriptInterface public void analyzeCalls(String token,String rows){
             if(rows==null||rows.length()>2000000||token==null||token.length()>150)return;
             runOnUiThread(()->{
-                if(pendingToken!=null){message("Уже идёт чтение журнала");return;}
+                if(pendingToken!=null){js("window.kartaCallTotals("+JSONObject.quote(token)+",null)");message("Уже идёт чтение журнала");return;}
                 pendingToken=token;pendingRows=rows;
                 new AlertDialog.Builder(MainActivity.this).setTitle("Учесть звонки за 90 дней?")
                     .setMessage("Будут подсчитаны входящие и исходящие вызовы с длительностью больше нуля для номеров на карте. В карточках и экспорте сохраняются только итоги и дата обновления. После расчёта вы увидите предпросмотр.")
@@ -105,9 +106,16 @@ public final class MainActivity extends Activity {
             if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)readCounts();else denyCounts();
         }
     }
+    private String phoneRegion(){
+        TelephonyManager tel=(TelephonyManager)getSystemService(TELEPHONY_SERVICE);
+        String region=tel==null?"":tel.getNetworkCountryIso();
+        if(region==null||region.isEmpty())region=Locale.getDefault().getCountry();
+        return region.toUpperCase(Locale.US);
+    }
     private String canonical(String number,String region){
         if(number==null)return "";
         String raw=PhoneNumberUtils.normalizeNumber(number);
+        if(raw.startsWith("00"))raw="+"+raw.substring(2);
         if(!raw.matches("\\+?[0-9]{5,15}"))return "";
         String international=PhoneNumberUtils.formatNumberToE164(raw,region);
         return international==null?raw:international;
@@ -117,10 +125,7 @@ public final class MainActivity extends Activity {
         if(snapshot==null)return;
         new Thread(()->{
             try{
-                TelephonyManager tel=(TelephonyManager)getSystemService(TELEPHONY_SERVICE);
-                String region=tel==null?"":tel.getNetworkCountryIso();
-                if(region==null||region.isEmpty())region=Locale.getDefault().getCountry();
-                region=region.toUpperCase(Locale.US);
+                String region=phoneRegion();
                 Map<String,String> ids=new HashMap<>();Set<String> shared=new HashSet<>();
                 JSONArray rows=new JSONArray(snapshot);JSONObject counts=new JSONObject();
                 for(int i=0;i<rows.length();i++){
@@ -153,7 +158,9 @@ public final class MainActivity extends Activity {
             try(Cursor c=getContentResolver().query(uri,new String[]{Phone.DISPLAY_NAME,Phone.NUMBER},null,null,null)){
                 if(c!=null&&c.moveToFirst()&&c.getString(1)!=null)
                     js("window.kartaPickedPhone("+JSONObject.quote(c.getString(0))+","+JSONObject.quote(c.getString(1))+","+countAfterPick+")");
-            }catch(RuntimeException e){message("Не удалось прочитать выбранный номер");}
+                else js("window.kartaPickCancelled()");
+            }catch(RuntimeException e){js("window.kartaPickCancelled()");message("Не удалось прочитать выбранный номер");}
+        }else if(request==PICK){js("window.kartaPickCancelled()");
         }else if(request==OPEN&&chooser!=null){
             Uri[] files=WebChromeClient.FileChooserParams.parseResult(result,reply);
             if(files!=null)for(Uri f:files)if(!"content".equals(f.getScheme())){files=null;break;}

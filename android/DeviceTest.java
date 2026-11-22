@@ -8,7 +8,8 @@ import java.util.concurrent.*;
 
 public class DeviceTest extends Instrumentation {
     private WebView web;
-    @Override public void onCreate(Bundle args){super.onCreate(args);start();}
+    private String mode;
+    @Override public void onCreate(Bundle args){super.onCreate(args);mode=args.getString("mode","calls");start();}
     private String eval(String code) throws Exception{
         ArrayBlockingQueue<String> reply=new ArrayBlockingQueue<>(1);
         runOnMainSync(()->web.evaluateJavascript(code,value->reply.offer(value)));
@@ -20,15 +21,16 @@ public class DeviceTest extends Instrumentation {
     }
     private boolean press(AccessibilityNodeInfo node,String label){
         if(node==null)return false;
-        if(label.equalsIgnoreCase(node.getText()==null?"":node.getText().toString())&&node.isClickable())
-            return node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        if(label.equalsIgnoreCase(node.getText()==null?"":node.getText().toString())){
+            for(AccessibilityNodeInfo p=node;p!=null;p=p.getParent())
+                if(p.isClickable())return p.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        }
         for(int i=0;i<node.getChildCount();i++)if(press(node.getChild(i),label))return true;
         return false;
     }
-    private void describe(AccessibilityNodeInfo n,StringBuilder text){
-        if(n==null||text.length()>1000)return;
-        if(n.getText()!=null)text.append(n.getText()).append("|");
-        for(int i=0;i<n.getChildCount();i++)describe(n.getChild(i),text);
+    private void clickText(String label) throws Exception{
+        for(int i=0;i<60;i++){if(press(getUiAutomation().getRootInActiveWindow(),label))return;Thread.sleep(250);}
+        throw new AssertionError("Control unavailable: "+label);
     }
     @Override public void onStart(){
         Bundle out=new Bundle();
@@ -40,18 +42,35 @@ public class DeviceTest extends Instrumentation {
             runOnMainSync(()->web=(WebView)((android.view.ViewGroup)activity.findViewById(android.R.id.content)).getChildAt(0));
             await("!!document.querySelector('#kv2')&&!document.querySelector('#kv2').inert");
             await("typeof window.kartaPickedPhone===\u0027function\u0027 && typeof window.KartaFiles.analyzeCalls===\u0027function\u0027");
-            eval("window.kartaPickedPhone('Проверка','+12025550137',true)");
-            boolean clicked=false;
-            for(int i=0;i<60&&!clicked;i++){clicked=press(getUiAutomation().getRootInActiveWindow(),"Продолжить");Thread.sleep(250);}
-            if(!clicked){
-                StringBuilder visible=new StringBuilder();
-                describe(getUiAutomation().getRootInActiveWindow(),visible);
-                throw new AssertionError("Consent button unavailable. UI="+visible+" editor="+eval("document.body.innerText.slice(-400)"));
+            if("seed".equals(mode)){
+                eval("window.kartaPickedPhone('Upgrade marker','+12025550199',false)");
+                await("document.querySelector('#kv2-side-body').innerText.includes('Upgrade marker')");
+                Thread.sleep(650);
+                out.putString("stream","PASS: upgrade seed");finish(Activity.RESULT_OK,out);return;
             }
+            await("document.querySelector('svg').textContent.includes('Upgrade marker')");
+            eval("document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-calls]').click()");
+            Thread.sleep(1200);
+            if("denied".equals(mode)){
+                sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
+                Thread.sleep(600);
+                eval("document.querySelector('[data-act=pick-calls]').click()");
+            }
+            clickText("QA Contact");
+            if("denied".equals(mode)){
+                clickText("Отмена");
+                await("document.querySelector('svg').textContent.includes('QA Contact')");
+                eval("document.querySelector('[data-act=pick-calls]').click()");
+                clickText("QA Contact");clickText("Продолжить");
+                Thread.sleep(800);
+                await("document.querySelector('svg').textContent.includes('QA Contact') && !document.querySelector('[data-act=apply-group]')");
+                out.putString("stream","PASS: picker cancel, consent cancel, permission denied, contact retained");finish(Activity.RESULT_OK,out);return;
+            }
+            clickText("Продолжить");
             await("!!document.querySelector('[data-act=apply-group]')");
             eval("document.querySelector('[data-act=apply-group]').click()");
             await("!document.querySelector('[data-act=apply-group]')");
-            String probe="(()=>{const open=indexedDB.open('karta-svyazey-2.1');open.onsuccess=()=>{const db=open.result;const q=db.transaction('graphs').objectStore('graphs').get('current');q.onsuccess=()=>{window.qaTotals=JSON.parse(q.result).people[0]?.calls?.count;db.close()}};return true})()";
+            String probe="(()=>{const open=indexedDB.open('karta-svyazey-2.1');open.onsuccess=()=>{const db=open.result;const q=db.transaction('graphs').objectStore('graphs').get('current');q.onsuccess=()=>{window.qaTotals=JSON.parse(q.result).people.find(p=>p.name==='QA Contact')?.calls?.count;db.close()}};return true})()";
             boolean match=false;
             for(int i=0;i<50&&!match;i++){eval(probe);Thread.sleep(200);match="2".equals(eval("window.qaTotals"));}
             if(!match)throw new AssertionError("Expected two answered calls, observed "+eval("window.qaTotals"));

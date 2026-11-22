@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.3</title></head><body><div id="kv2" class="kv2">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.4</title></head><body><div id="kv2" class="kv2">
 <style>
 html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px solid #cdc1ae;border-radius:12px;padding:22px;background:#fffaf4}dialog label{display:block;margin:12px 0}dialog::backdrop{background:#40393066}.lock{position:fixed;inset:25% 10% auto;z-index:50}#kv2.kv2{height:100dvh;border:0;border-radius:0}#kv2 .draft{position:sticky;top:0;background:#fffaf4;z-index:2;padding:5px}
 #kv2{font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#453e35;background:#fff;border:1px solid #ddd3c5;border-radius:14px;overflow:hidden;position:relative;isolation:isolate;height:760px}
@@ -72,20 +72,24 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px sol
 #kv2 .right{width:90%}
 #kv2 .hint{font-size:10px}
 }
+#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
+#kv2 .maps [aria-pressed=true]{background:#503e32;color:white}
+#kv2 .main{top:99px}#kv2 .maps span{font-size:12px}#map-tabs{display:flex;gap:3px}
 </style>
 <header class="bar">
-  <span class="brand">◉ Карта связей 2.3</span>
+  <span class="brand">◉ Карта связей 2.4</span>
   <button class="btn primary" data-act="new">＋ Человек</button>
   <button class="btn" data-act="link" id="kv2-link-btn">⇄ Связь</button>
   <button class="btn" data-act="label">T</button>
   <button class="btn" data-act="group">◎ Группировка</button>
   <button class="btn" data-act="path">⌕ Путь</button>
   <button class="btn" data-act="filters">☷ Фильтры</button>
-  <button class="btn" data-act="settings">⚙</button>
+  <button class="btn" aria-label="Оформление" data-act="settings">⚙</button>
   <button class="btn" data-act="undo" title="Отменить">↶</button>
   <button class="btn" data-act="redo" title="Вернуть">↷</button>
   <button class="btn" data-act="more">⋯</button>
 </header>
+<nav class="maps" aria-label="Рабочие карты"><div id="map-tabs"></div><button class="btn" data-act="new-map" aria-label="Создать карту">＋ Карта</button><button class="btn" data-act="rename-map">Переименовать</button><button class="btn" data-act="directory">Найти человека</button><span id="view-state"></span><span id="save-state" role="status"></span><button id="rescue" hidden class="btn" data-act="export">Скачать копию JSON</button></nav>
 <div class="main" id="kv2-main">
   <div class="view" id="kv2-view">
     <svg id="kv2-svg" class="scene" xmlns="http://www.w3.org/2000/svg" aria-label="Редактор графа людей"></svg>
@@ -188,7 +192,7 @@ function get(id){return data.people.find(p=>p.id===id);}
 function getLink(id){return data.links.find(p=>p.id===id);}
 function getLabel(id){return data.labels.find(p=>p.id===id);}
 function person(x=0,y=0){
- return {id:id(),x,y,name:"Новый человек",surname:"",middle:"",birth:"",sex:"u",city:"",job:"",category:"Прочие",tags:[],importance:3,color:"#ac8463",stroke:"#ffffff",size:43,alpha:1,photo:null,marital:"unknown",maritalEvents:[],extra:[],contacts:[],docs:[],savedRelations:{},...Object.fromEntries(fields.flatMap(g=>g[1].map(f=>[f[0],""])))};
+ return {id:id(),x,y,surname:"",middle:"",birth:"",sex:"u",city:"",job:"",category:"Прочие",tags:[],importance:3,color:"#ac8463",stroke:"#ffffff",size:43,alpha:1,photo:null,marital:"unknown",maritalEvents:[],extra:[],contacts:[],docs:[],savedRelations:{},...Object.fromEntries(fields.flatMap(g=>g[1].map(f=>[f[0],""]))),name:"Новый человек"};
 }
 function notify(msg){
  const el=$("kv2-toast");el.textContent=msg;el.hidden=false;
@@ -198,6 +202,89 @@ let editingBase=null;
 // Writes are ordered. Import changes the in-memory graph only after storage commits.
 let database, vaultKey, vaultSalt, lastWrite=Promise.resolve(), storageRevision=0;
 let dirty=false, pendingSave=0, persistentReady=false;
+// The original graph keeps the keys used by versions 2.1–2.3.
+let mapId="home", saveError="", switching=false;
+const mapNames=new Map([["home","Основная карта"]]), histories=new Map();
+const mapKey=(id,key)=>id==="home"?key:"map/"+id+"/"+key;
+function saveIndicator(){
+ const el=$("save-state");if(!el)return;
+ el.textContent=saveError?"Только в памяти · "+saveError:dirty||writesPending?"Сохраняется…":"Сохранено";
+ $("rescue").hidden=!saveError;
+}
+function showTabs(){
+ $("map-tabs").innerHTML=[...mapNames].map(([key,name])=>
+  `<button class="btn" aria-pressed="${mapId===key}" data-map="${h(key)}">${h(name)}</button>`).join("");
+}
+async function readMap(id){
+ const [stored,revision]=await new Promise((resolve,reject)=>{
+  const tx=database.transaction("graphs"),s=tx.objectStore("graphs");
+  const content=s.get(mapKey(id,"current")),rev=s.get(mapKey(id,"revision"));
+  tx.oncomplete=()=>resolve([content.result,rev.result||0]);
+  tx.onabort=tx.onerror=()=>reject(tx.error);
+ });
+ let key=null,salt=null,graph;
+ if(stored&&typeof stored!=="string"){
+  const pass=await askSecret("Пароль карты «"+mapNames.get(id)+"»");
+  if(pass===null)throw Error("Карта заблокирована");
+  salt=stored.salt;key=await internalKey(pass,salt);
+  const bytes=await crypto.subtle.decrypt({name:"AES-GCM",iv:stored.iv},key,stored.cipher);
+  graph=validate(JSON.parse(new TextDecoder().decode(bytes)));
+ }else{
+  const source=stored??(id==="home"?(localStorage.getItem(STORAGE)??localStorage.getItem("relationship-map-v1")):null);
+  graph=source?validate(JSON.parse(source)):initial();
+ }
+ return {graph,key,salt,revision};
+}
+function installMap(id,state){
+ mapId=id;data=state.graph;vaultKey=state.key;vaultSalt=state.salt;storageRevision=state.revision;
+ const history=histories.get(id);
+ undo=history?.undo||[];redo=history?.redo||[];
+ if(history&&history.rev!==storageRevision){undo=[];redo=[];}
+ dirty=false;saveError="";selected=null;anchor=null;route=[];preview=null;previewInfo=null;
+ mode="select";$("kv2-link-btn").classList.remove("active");
+ pointer=null;pinch=null;pointers.clear();clearTimeout(longTimer);
+ if(pendingFrame){cancelAnimationFrame(pendingFrame);pendingFrame=0;}
+ $("kv2-menu").hidden=true;pendingCalls=null;pickerMap=null;searchReturn=false;
+ closeSide();closeRight();$("kv2-side-body").replaceChildren();$("kv2-right-body").replaceChildren();showTabs();saveIndicator();updateViewIndicator();
+}
+async function switchMap(id,name){
+ if(switching||id===mapId||!persistentReady)return;
+ if(editingBase||pendingCalls||pickerMap){notify("Сначала завершите редактирование или выбор контакта");return;}
+ switching=true;root.inert=true;
+ try{
+  flushSave();await lastWrite;
+  if(dirty||saveError)throw Error("Сначала сохраните изменения или скачайте копию");
+  if(name){
+   await dbRequest("readwrite",s=>s.add(name,"tab/"+id));
+   mapNames.set(id,name);
+  }
+  const next=await readMap(id);
+  if(vaultKey)histories.delete(mapId);else histories.set(mapId,{rev:storageRevision,undo,redo});
+  installMap(id,next);
+ }catch(e){notify(e.message);}finally{root.inert=false;switching=false;}
+}
+function newMap(){
+ const name=prompt("Название новой, пустой карты")?.trim().slice(0,80);
+ if(name)switchMap(id(),name);
+}
+async function renameMap(){
+ const name=prompt("Название карты",mapNames.get(mapId))?.trim().slice(0,80);
+ if(!name)return;
+ const target=mapId;
+ try{await dbRequest("readwrite",s=>s.put(name,"tab/"+target));mapNames.set(target,name);showTabs();}
+ catch(e){notify(e.message);}
+}
+async function loadTabNames(){
+ const rows=await new Promise((resolve,reject)=>{
+  const tx=database.transaction("graphs"),s=tx.objectStore("graphs"),range=IDBKeyRange.bound("tab/","tab/\uffff");
+  const keys=s.getAllKeys(range),names=s.getAll(range);
+  tx.oncomplete=()=>resolve(keys.result.map((key,i)=>[key.slice(4),names.result[i]]));
+  tx.onabort=tx.onerror=()=>reject(tx.error);
+ });
+ for(const [key,name] of rows)mapNames.set(key,name);
+ showTabs();
+}
+
 function dbRequest(mode,operation){
  return new Promise((resolve,reject)=>{
   const tx=database.transaction("graphs",mode);
@@ -215,10 +302,10 @@ async function saveSnapshot(snapshot,key=vaultKey,salt=vaultSalt){
  }
  await new Promise((resolve,reject)=>{
   const tx=database.transaction("graphs","readwrite"),store=tx.objectStore("graphs");
-  const read=store.get("revision");let conflict=false;
+  const read=store.get(mapKey(mapId,"revision"));let conflict=false;
   read.onsuccess=()=>{
    if((read.result||0)!==storageRevision){conflict=true;tx.abort();return;}
-   store.put(record,"current");store.put(storageRevision+1,"revision");
+   store.put(record,mapKey(mapId,"current"));store.put(storageRevision+1,mapKey(mapId,"revision"));
   };
   tx.oncomplete=()=>{storageRevision++;resolve();};
   tx.onabort=tx.onerror=()=>reject(Error(conflict?"Карта изменена в другой вкладке. Экспортируйте изменения и откройте карту заново.":"Ошибка записи. Проверьте свободное место."));
@@ -226,19 +313,19 @@ async function saveSnapshot(snapshot,key=vaultKey,salt=vaultSalt){
 }
 function enqueueSave(snapshot,key=vaultKey,salt=vaultSalt){
  const write=lastWrite.catch(()=>{}).then(()=>saveSnapshot(snapshot,key,salt));
- writesPending++;write.then(()=>writesPending--,()=>writesPending--);
+ writesPending++;saveIndicator();write.then(()=>{writesPending--;saveError="";saveIndicator();},e=>{writesPending--;saveError=e.message;saveIndicator();});
  lastWrite=write;
  return write;
 }
 function persist(){
  if(editingBase||!persistentReady)return;
- dirty=true;clearTimeout(pendingSave);
+ dirty=true;saveIndicator();clearTimeout(pendingSave);
  pendingSave=setTimeout(flushSave,150);
 }
 function flushSave(){
  clearTimeout(pendingSave);pendingSave=0;
  if(!dirty||!persistentReady)return;
- const snapshot=JSON.stringify(editingBase||data);
+ updateViewIndicator();const snapshot=JSON.stringify(editingBase||data);
  dirty=false;
  enqueueSave(snapshot).catch(e=>{dirty=true;notify(e.message);});
 }
@@ -286,18 +373,7 @@ async function loadStore(){
    req.onupgradeneeded=()=>req.result.createObjectStore("graphs");
    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
   });
-  const [stored,rev]=await Promise.all(["current","revision"].map(k=>dbRequest("readonly",s=>s.get(k))));
-  storageRevision=rev||0;
-  if(stored&&typeof stored!=="string"){
-   const pass=await askSecret("Открыть зашифрованную карту");
-   if(pass===null)throw Error("Карта заблокирована. Для открытия введите пароль.");
-   vaultSalt=stored.salt;vaultKey=await internalKey(pass,vaultSalt);
-   const raw=await crypto.subtle.decrypt({name:"AES-GCM",iv:stored.iv},vaultKey,stored.cipher);
-   data=validate(JSON.parse(new TextDecoder().decode(raw)));
-  }else{
-   const source=stored??localStorage.getItem(STORAGE)??localStorage.getItem("relationship-map-v1");
-   if(source)data=validate(JSON.parse(source));
-  }
+  await loadTabNames();installMap("home",await readMap("home"));
   persistentReady=true;root.inert=false;draw();
  }catch(e){
   const lock=document.createElement("section");
@@ -307,10 +383,11 @@ async function loadStore(){
   document.body.append(lock);
  }
 }
-function remember(label){
+function moveState(kind,target){return {kind,id:target.id,x:target.x,y:target.y,audit:data.audit.slice()};}
+function remember(label,state){
  if(editingBase)return;
- undo.push(JSON.stringify(data));
- while(undo.length>1&&(undo.length>35||undo.reduce((bytes,item)=>bytes+item.length,0)>32000000))undo.shift();
+ undo.push(state||JSON.stringify(data));
+ while(undo.length>1&&(undo.length>35||undo.reduce((bytes,item)=>bytes+(typeof item==="string"?item.length:JSON.stringify(item).length),0)>32000000))undo.shift();
  redo=[];data.audit.push({date:new Date().toISOString(),label});
  if(data.audit.length>80)data.audit.shift();
 }
@@ -322,8 +399,14 @@ function finish(refreshPanel=false){
 function rollback(which){
  const from=which==="undo"?undo:redo,to=which==="undo"?redo:undo;
  if(!from.length){notify("История пуста");return;}
- to.push(JSON.stringify(data));
- data=JSON.parse(from.pop());preview=null;route=[];selected=null;
+ const item=from.pop();
+ if(typeof item==="string"){to.push(JSON.stringify(data));data=JSON.parse(item);}
+ else{
+  const target=item.kind==="person"?get(item.id):getLabel(item.id);
+  if(!target){from.push(item);return;}
+  to.push(moveState(item.kind,target));target.x=item.x;target.y=item.y;data.audit=item.audit;
+ }
+ preview=null;route=[];selected=null;
  closeSide();draw();persist();if(pane)renderRight();
 }
 function newPerson(p){
@@ -463,17 +546,18 @@ function bloodDegree(a,b){
  for(const [key,da] of aa)if(bb.has(key))best=Math.min(best,da+bb.get(key));
  return Number.isFinite(best)?best:null;
 }
-function categoryOf(n){
- if(n.category && n.category!=="Автоматически")return n.category;
- if(data.links.some(e=>family(e)&&(e.a===n.id||e.b===n.id)))return "Семья";
- if(data.links.some(e=>e.kind==="work"&&(e.a===n.id||e.b===n.id)))return "Работа";
- if(data.links.some(e=>e.kind==="study"&&(e.a===n.id||e.b===n.id)))return "Учёба";
- if(data.links.some(e=>e.kind==="friend"&&(e.a===n.id||e.b===n.id)))return "Друзья";
- return "Прочие";
+function categoryIndex(){
+ const index=new Map(),labels=["Семья","Работа","Учёба","Друзья"];
+ for(const e of data.links){
+  const i=family(e)?0:e.kind==="work"?1:e.kind==="study"?2:e.kind==="friend"?3:4;
+  if(i<4)for(const id of [e.a,e.b])if(i<(index.get(id)??4))index.set(id,i);
+ }
+ return n=>n.category&&n.category!=="Автоматически"?n.category:labels[index.get(n.id)]||"Прочие";
 }
 function shownPeople(){
  const f=data.filters,focus=f.focus||selected?.id;
  const d=f.hops>0&&get(focus)?hopDistances(focus):null;
+ const categoryOf=f.category!=="all"?categoryIndex():null;
  const q=f.search.toLocaleLowerCase("ru").trim();
  return data.people.filter(current=>{
   const n=atDate(current);
@@ -610,7 +694,7 @@ function draw(){
    inner=`<image href="${h(n.photo)}" x="${-rad}" y="${-rad}" width="${2*rad}" height="${2*rad}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${cid})"/>`;
   }
   const showName=k>.27;
-  nodes.push(`<g class="node" data-person="${h(n.id)}" transform="translate(${p.x} ${p.y})" opacity="${clamp(n.alpha,1,.1,1)}"><title>${h(full(n))}</title>${showName?`<rect x="${-rad}" y="0" width="${2*rad}" height="${rad+18}" fill="transparent"/>`:""}${inner}<circle r="${rad}" stroke="${border}" stroke-width="${chosen?4:2}" fill="none"/>${showName?`<text y="${rad+clamp(n.labelSize,13,7,35)+4}" fill="${validColor(n.labelColor,"#534637")}" font-size="${clamp(n.labelSize,13,7,35)}" text-anchor="middle" stroke="${data.settings.bg}" stroke-width="3" paint-order="stroke" pointer-events="all">${h(full(n))}</text>`:""}</g>`);
+  nodes.push(`<g class="node" data-person="${h(n.id)}" transform="translate(${p.x} ${p.y})" opacity="${clamp(n.alpha,1,.1,1)}"><title>${h(full(n))}${previewInfo?.reasons?" · "+h(previewInfo.reasons.get(n.id)):""}</title>${showName?`<rect x="${-rad}" y="0" width="${2*rad}" height="${rad+18}" fill="transparent"/>`:""}${inner}<circle r="${rad}" stroke="${border}" stroke-width="${chosen?4:2}" fill="none"/>${showName?`<text y="${rad+clamp(n.labelSize,13,7,35)+4}" fill="${validColor(n.labelColor,"#534637")}" font-size="${clamp(n.labelSize,13,7,35)}" text-anchor="middle" stroke="${data.settings.bg}" stroke-width="3" paint-order="stroke" pointer-events="all">${h(full(n))}</text>`:""}</g>`);
  }
  for(const t of data.labels){
   labels.push(`<g class="lab" data-label="${h(t.id)}" transform="translate(${t.x} ${t.y})"><text fill="${validColor(t.color)}" opacity="${t.alpha}" font-size="${t.size}" font-weight="${t.bold?700:400}" font-style="${t.italic?"italic":"normal"}" stroke="${data.settings.bg}" stroke-width="3" paint-order="stroke" text-anchor="middle">${h(t.text)}</text></g>`);
@@ -622,10 +706,22 @@ function draw(){
 function openSide(kind,idValue){
  selected={kind,id:idValue};side.hidden=false;root.classList.add("has-panel");renderSide();requestAnimationFrame(draw);
 }
-function closeSide(){if(editingBase)profileDraft(false);side.hidden=true;root.classList.remove("has-panel");selected=null;draw();}
+function closeSide(){if(editingBase)profileDraft(false);side.hidden=true;root.classList.remove("has-panel");selected=null;draw();if(searchReturn){searchReturn=false;showDirectory();}}
+let searchReturn=false;
+function showDirectory(){
+ openRight("directory");
+ const body=$("kv2-right-body");body.innerHTML='<label class="field">Имя, фамилия или телефон<input id="directory-query" type="search"></label><div id="directory-results"></div>';
+ const input=$("directory-query"),out=$("directory-results");
+ function list(){
+  const q=input.value.trim().toLocaleLowerCase("ru");
+  const hits=data.people.filter(n=>(full(n)+" "+fmt(n.phone)).toLocaleLowerCase("ru").includes(q));
+  out.innerHTML=hits.slice(0,40).map(n=>`<button class="btn" data-go="${h(n.id)}">${h(full(n))} ${h(n.city||n.phone||"")}</button>`).join("")+(hits.length>40?" Уточните запрос.":hits.length?"":" Никого не найдено.");
+ }
+ input.oninput=list;input.onkeydown=e=>{if(e.key==="Enter")out.querySelector("button")?.click();};list();input.focus();
+}
 function openRight(name){
  pane=name;right.hidden=false;
- const titles={settings:"Оформление полотна",filters:"Фильтры и время",group:"Интеллектуальная группировка",path:"Цепочка знакомств",more:"Файлы и инструменты"};
+ const titles={directory:"Поиск людей",settings:"Оформление полотна",filters:"Фильтры и время",group:"Интеллектуальная группировка",path:"Цепочка знакомств",more:"Файлы и инструменты"};
  $("kv2-right-title").textContent=titles[name]||name;renderRight();
 }
 function closeRight(){pane="";right.hidden=true;}
@@ -651,7 +747,10 @@ function profileView(n){
  for(const [title,items] of fields){
   result+=group(title,items.map(([key,label])=>row(label,key==="sex"?({m:"Мужской",f:"Женский"}[n.sex]):n[key])).join(""));
  }
- if(callCount(n)!==null)result+=row("Разговоры за 90 дней на "+n.calls.asOf,String(n.calls.count));
+ if(callCount(n)!==null){
+  const c=n.calls;result+=row("Разговоры · "+({csv:"CSV",device:"журнал устройства"}[c.source]||"старые данные"),c.count+" · "+(c.start&&c.end?c.start+" — "+c.end:"период неизвестен")+" · обновлено "+c.asOf);
+ }
+ if(data.group.ringBy==="calls")result+=row("Предложение группировки",callRingReason(n));
  result+=row("Возраст",age(n.birth)?.toString())+row("Категория",n.category)+row("Теги",n.tags.join(", "));
  result+=row("Семейное положение",n.marital==="unknown"?"":statuses.find(([k])=>k===n.marital)?.[1]);
  result+=group("Семья и родство",data.links.filter(e=>family(e)&&(e.a===n.id||e.b===n.id)).map(e=>{
@@ -890,6 +989,44 @@ function migrateLegacy(raw){
  return {version:2,people,links,labels:raw.texts||[],view:raw.view,
   settings:{...raw.settings,bg:raw.settings?.background}};
 }
+function validatePresentation(raw,ids){
+ const s=initial();
+ if(raw.settings&&typeof raw.settings==="object"){
+  const x=raw.settings;
+  s.settings.bg=validColor(x.bg,"#ffffff");
+  for(const key of ["grid","rings","sectors"]){
+   const value=x[key];if(!value||typeof value!=="object")continue;
+   const base=s.settings[key];
+   base.on=!!value.on;base.color=validColor(value.color,base.color);
+   base.width=clamp(value.width,base.width,.2,10);base.alpha=clamp(value.alpha,base.alpha,0,1);
+   if(key==="grid"){base.dx=clamp(value.dx,100,10,2000);base.dy=clamp(value.dy,100,10,2000);}
+   else if(key==="rings"){
+    if(value.radii!==undefined&&(!Array.isArray(value.radii)||value.radii.length>128||value.radii.some((r,i)=>!Number.isFinite(r)||r<1||r>100000||(i&&r<=value.radii[i-1]))))throw Error("Некорректный список радиусов окружностей");
+    base.radii=value.radii??[];base.names=(Array.isArray(value.names)?value.names:[]).slice(0,128).map(x=>fmt(x).slice(0,80));base.showNames=value.showNames!==false;base.labelColor=validColor(value.labelColor,"#6b503c");base.labelSize=clamp(value.labelSize,14,8,40);
+    base.individual=value.individual===true;
+    if(base.individual&&!base.radii.length)throw Error("Не указан радиус окружности");
+    base.step=clamp(value.step,180,50,2000);base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);}
+   else {
+    base.weights=(Array.isArray(value.weights)?value.weights:[1,1,1,1,1]).slice(0,24).map(z=>clamp(z,1,.1,30));
+    if(base.weights.length<2)base.weights=[1,1];
+    base.labels=base.weights.map((w,i)=>fmt(value.labels?.[i]||`Сектор ${i+1}`).slice(0,80));
+    base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);
+   }
+  }
+ }
+ const f=raw.filters||{};
+ s.filters={...s.filters,
+  search:fmt(f.search).slice(0,300),category:fmt(f.category||"all").slice(0,100),
+  hops:clamp(f.hops,0,0,6),focus:ids.has(f.focus)?f.focus:null,
+  timeline:!!f.timeline,date:/^\d{4}-\d\d-\d\d$/.test(f.date)?f.date:today(),
+  layers:Object.fromEntries(Object.keys(s.filters.layers).map(k=>[k,f.layers?.[k]!==false]))
+ };
+ s.group={sectorBy:["category","city","job","tag"].includes(raw.group?.sectorBy)?raw.group.sectorBy:"category",
+  ringBy:["hops","importance","contact","calls","none"].includes(raw.group?.ringBy)?raw.group.ringBy:"hops"};
+ s.view={x:clamp(raw.view?.x,0,-100000,100000),y:clamp(raw.view?.y,0,-100000,100000),k:clamp(raw.view?.k,1,.12,4)};
+ return {settings:s.settings,filters:s.filters,view:s.view,group:s.group};
+}
+
 function validate(raw){
  if(raw?.version===1)raw=migrateLegacy(raw);
  if(!raw||![2,3].includes(raw.version)||!Array.isArray(raw.people)||!Array.isArray(raw.links))throw Error("Неподдерживаемый формат");
@@ -939,7 +1076,7 @@ function validate(raw){
     return {date:event.date,previous};
    });
   }
-  if(p.calls&&Number.isSafeInteger(p.calls.count)&&p.calls.count>=0&&p.calls.phone===phoneKey(n.phone)&&/^\d{4}-\d{2}-\d{2}$/.test(p.calls.asOf))n.calls={phone:p.calls.phone,count:p.calls.count,asOf:p.calls.asOf};
+  if(p.calls&&Number.isSafeInteger(p.calls.count)&&p.calls.count>=0&&phoneKey(p.calls.phone)&&phoneKey(p.calls.phone)===phoneKey(n.phone)&&/^\d{4}-\d{2}-\d{2}$/.test(p.calls.asOf))n.calls={phone:phoneKey(p.calls.phone),count:p.calls.count,asOf:p.calls.asOf,source:["csv","device"].includes(p.calls.source)?p.calls.source:"legacy",start:isoDate(p.calls.start)?p.calls.start:"",end:isoDate(p.calls.end)?p.calls.end:""};
   n.marital=statuses.some(x=>x[0]===p.marital)?p.marital:"unknown";
   n.category=fmt(p.category||"Прочие").slice(0,100);
   n.tags=Array.isArray(p.tags)?p.tags.slice(0,30).map(x=>fmt(x).slice(0,60)):[];
@@ -975,49 +1112,17 @@ function validate(raw){
   for(const [key,value] of Object.entries(raw.overrides).slice(0,20000)){
    const [a,b]=key.split("|");if(ids.has(a)&&ids.has(b))s.overrides[key]=fmt(value).slice(0,200);
   }
- if(raw.settings&&typeof raw.settings==="object"){
-  const x=raw.settings;
-  s.settings.bg=validColor(x.bg,"#ffffff");
-  for(const key of ["grid","rings","sectors"]){
-   const value=x[key];if(!value||typeof value!=="object")continue;
-   const base=s.settings[key];
-   base.on=!!value.on;base.color=validColor(value.color,base.color);
-   base.width=clamp(value.width,base.width,.2,10);base.alpha=clamp(value.alpha,base.alpha,0,1);
-   if(key==="grid"){base.dx=clamp(value.dx,100,10,2000);base.dy=clamp(value.dy,100,10,2000);}
-   else if(key==="rings"){
-    if(value.radii!==undefined&&(!Array.isArray(value.radii)||value.radii.length>128||value.radii.some((r,i)=>!Number.isFinite(r)||r<1||r>100000||(i&&r<=value.radii[i-1]))))throw Error("Некорректный список радиусов окружностей");
-    base.radii=value.radii??[];base.names=(Array.isArray(value.names)?value.names:[]).slice(0,128).map(x=>fmt(x).slice(0,80));base.showNames=value.showNames!==false;base.labelColor=validColor(value.labelColor,"#6b503c");base.labelSize=clamp(value.labelSize,14,8,40);
-    base.individual=value.individual===true;
-    if(base.individual&&!base.radii.length)throw Error("Не указан радиус окружности");
-    base.step=clamp(value.step,180,50,2000);base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);}
-   else {
-    base.weights=(Array.isArray(value.weights)?value.weights:[1,1,1,1,1]).slice(0,24).map(z=>clamp(z,1,.1,30));
-    if(base.weights.length<2)base.weights=[1,1];
-    base.labels=base.weights.map((w,i)=>fmt(value.labels?.[i]||`Сектор ${i+1}`).slice(0,80));
-    base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);
-   }
-  }
- }
- const f=raw.filters||{};
- s.filters={...s.filters,
-  search:fmt(f.search).slice(0,300),category:fmt(f.category||"all").slice(0,100),
-  hops:clamp(f.hops,0,0,6),focus:ids.has(f.focus)?f.focus:null,
-  timeline:!!f.timeline,date:/^\d{4}-\d\d-\d\d$/.test(f.date)?f.date:today(),
-  layers:Object.fromEntries(Object.keys(s.filters.layers).map(k=>[k,f.layers?.[k]!==false]))
- };
- s.group={sectorBy:["category","city","job","tag"].includes(raw.group?.sectorBy)?raw.group.sectorBy:"category",
-  ringBy:["hops","importance","contact","calls","none"].includes(raw.group?.ringBy)?raw.group.ringBy:"hops"};
- s.view={x:clamp(raw.view?.x,0,-100000,100000),y:clamp(raw.view?.y,0,-100000,100000),k:clamp(raw.view?.k,1,.12,4)};
+ Object.assign(s,validatePresentation(raw,ids));
  if(raw.savedViews!==undefined){
   if(!Array.isArray(raw.savedViews)||raw.savedViews.length>32)throw Error("Некорректный список видов");
   for(const v of raw.savedViews){
    if(!v||typeof v.name!=="string"||!v.name.trim()||!Array.isArray(v.positions)||v.positions.length>10000)throw Error("Повреждён сохранённый вид");
-   const clean=validate({version:3,people:[],links:[],settings:v.settings,filters:v.filters,view:v.view,group:v.group});
-   clean.filters.focus=ids.has(v.filters?.focus)?v.filters.focus:null;
+   const clean=validatePresentation(v,ids);
    if(v.positions.some(row=>!Array.isArray(row)||row.length!==3||typeof row[0]!=="string"||!row.slice(1).every(Number.isFinite)))throw Error("Неверные координаты вида");
    s.savedViews.push({name:v.name.slice(0,80),positions:v.positions.filter(row=>ids.has(row[0])),settings:clean.settings,view:clean.view,filters:clean.filters,group:clean.group});
   }
  }
+ s.activeView=s.savedViews.some(v=>v.name===raw.activeView)?raw.activeView:null;
  s.audit=Array.isArray(raw.audit)?raw.audit.slice(-80).map(a=>({date:fmt(a.date),label:fmt(a.label)})):[];
  return s;
 }
@@ -1025,11 +1130,28 @@ function dateDays(s){
  const d=new Date((s||"1970-01-01")+"T12:00:00");
  return Number.isNaN(+d)?Infinity:(Date.now()-d.getTime())/86400000;
 }
+function ringLevels(){return data.settings.rings.individual?data.settings.rings.radii.length:5;}
+function callRanks(levels){
+ const rank=new Map();
+
+  const counts=data.people.map(callCount),positive=[...new Set(counts.filter(c=>c>0))].sort((a,b)=>b-a);
+  const outer=counts.some(c=>!(c>0))?Math.max(1,levels-1):levels;
+  positive.forEach((c,i)=>rank.set(c,1+Math.floor(i*(outer-1)/Math.max(1,positive.length-1))));
+ return rank;
+}
+function callRingReason(n,rank=callRanks(ringLevels()),shared=null){
+ if(n.pinned)return "Позиция закреплена";
+ const count=callCount(n),phone=phoneKey(n.phone);
+ const duplicate=phone&&(shared?shared.has(phone):data.people.filter(p=>phoneKey(p.phone)===phone).length>1);
+ const i=rank.get(count)??ringLevels(),name=data.settings.rings.names[i-1];
+ return "Кольцо "+i+(name?" «"+name+"»":"")+" · "+(duplicate?"общий номер":count===null?"нет данных":"разговоров: "+count);
+}
 function groupPreview(){
  if(!data.people.length){notify("Нет людей для группировки");return;}
  const selectedId=data.filters.focus||(selected?.kind==="person"?selected.id:null)||data.people[0].id;
- const dist=hopDistances(selectedId);
+ const dist=data.group.ringBy==="hops"?hopDistances(selectedId):null;
  const by=data.group.sectorBy,rb=data.group.ringBy;
+ const categoryOf=by==="category"?categoryIndex():null;
  const keyFor=n=>by==="city"?(n.city||"Город неизвестен"):
   by==="job"?(n.job||"Профессия неизвестна"):
   by==="tag"?(n.tags[0]||"Без тегов"):categoryOf(n);
@@ -1046,13 +1168,7 @@ function groupPreview(){
   const days=dateDays(a);
   return days<=30?1:days<=180?2:days<=365?3:4;
  };
- const levels=data.settings.rings.individual?data.settings.rings.radii.length:5;
- const rank=new Map();
- if(rb==="calls"){
-  const counts=data.people.map(callCount),positive=[...new Set(counts.filter(c=>c>0))].sort((a,b)=>b-a);
-  const outer=counts.some(c=>!(c>0))?Math.max(1,levels-1):levels;
-  positive.forEach((c,i)=>rank.set(c,1+Math.floor(i*(outer-1)/Math.max(1,positive.length-1))));
- }
+ const levels=ringLevels(),rank=rb==="calls"?callRanks(levels):null;
  const requestedRing=n=>rb==="calls"?(rank.get(callCount(n))??levels):rb==="hops"?Math.min(5,dist.has(n.id)?Math.max(1,dist.get(n.id)):5):
   rb==="importance"?Math.max(1,6-n.importance):rb==="contact"?recent(n):1;
  const guides=data.settings.rings;
@@ -1104,10 +1220,17 @@ function groupPreview(){
   cells.get(key).push({id:n.id,size:n.size,x:p.x,y:p.y});
  }
  const collisions=crowded.size;
- preview={positions};previewInfo={labels:categories,weights,maxRing,collisions};
+ let reasons=null;
+ if(rank){
+  const seen=new Set(),shared=new Set();
+  for(const n of data.people){const k=phoneKey(n.phone);if(seen.has(k))shared.add(k);seen.add(k);}
+  reasons=new Map(data.people.map(n=>[n.id,callRingReason(n,rank,shared)]));
+ }
+ preview={positions};previewInfo={labels:categories,weights,maxRing,collisions,reasons};
  notify(collisions?`Предпросмотр: возможны наложения у ${collisions} людей. Увеличьте шаг окружностей.`:"Предпросмотр готов. Примените или отмените.");
  draw();if(pane==="group")renderRight();
 }
+
 function commitPreview(){
  if(!preview)return;
  remember("Автогруппировка по секторам и кольцам");
@@ -1163,7 +1286,7 @@ function renderRight(){
  const out=$("kv2-right-body"),s=data.settings,f=data.filters;
  let html="";
  if(pane==="settings"){
-  html+=`<details open><summary>Сохранённые виды</summary><div class="details"><label class="field">Название вида<input id="view-name" maxlength="80" placeholder="Например, Семья"></label><button class="btn" data-act="save-view">Сохранить текущий вид</button>
+  html+=`<details open><summary>Сохранённые виды</summary><div class="details"><label class="field">Название вида<input id="view-name" maxlength="80" placeholder="Например, Семья"></label><button class="btn" data-act="save-view">Сохранить как…</button> ${data.activeView?'<button class="btn" data-act="update-view">Обновить текущий вид</button>':""}
   ${data.savedViews.length?`<label class="field">Мои виды<select id="view-list">${data.savedViews.map((v,i)=>opt(i,v.name,"")).join("")}</select></label><button class="btn" data-act="load-view">Открыть вид</button> <button class="btn" data-act="remove-view">Удалить вид</button>`:""}
   <p class="muted">Вид сохраняет оформление, фильтры, масштаб и расположение людей. Карточки общие для всех видов.</p></div></details>`;
   html+=`<p class="notice">Каждый элемент фона закреплён в координатах графа.</p>${settingInput("bg","Цвет полотна",s.bg,"color")}`;
@@ -1183,7 +1306,7 @@ function renderRight(){
    html+="</div></details>";
   }
  }else if(pane==="filters"){
-  const cats=[...new Set(data.people.map(categoryOf))].sort();
+  const cats=[...new Set(data.people.map(categoryIndex()))].sort();
   html+=`<label class="field">Поиск имени, города, профессии или тега<input data-filter="search" value="${h(f.search)}" placeholder="Поиск"></label>
     <label class="field">Категория<select data-filter="category">${opt("all","Все категории",f.category)}${cats.map(c=>opt(c,c,f.category)).join("")}</select></label>
     <label class="field">Центральный человек<select data-filter="focus">${opt("","Автоматически",f.focus)}${data.people.map(n=>opt(n.id,full(n),f.focus)).join("")}</select></label>
@@ -1204,7 +1327,7 @@ function renderRight(){
     <p class="muted">Для категорий используются заданные категории карточек, для колец — выбранная числовая характеристика. Узлы распределяются пакетно по секторам и кольцам.</p>`;
   if(data.group.ringBy==="calls")html+='<p class="notice">Больше разговоров — ближе к центру. Одинаковые значения дают одинаковый радиус. Без разговоров или статистики — внешнее кольцо. Закреплённые узлы остаются на месте.</p>';
   if(window.KartaFiles?.analyzeCalls)html+='<button class="btn" data-act="refresh-calls">Обновить статистику звонков</button>';
-  html+='<label class="field">Импорт итогов за 90 дней (CSV)<input type="file" accept=".csv,text/csv" id="call-csv"></label><small>Две колонки: phone,count. Например: +79990000001,12. Импорт заменяет предыдущий набор.</small>';
+  html+='<label class="field">Импорт итогов звонков (CSV)<input type="file" accept=".csv,text/csv" id="call-csv"></label><small>Колонки phone,count или phone,count,start,end. Даты периода в формате ГГГГ-ММ-ДД. Импорт заменяет предыдущий набор.</small>';
   if(preview)html+=`<div class="box"><b>Предпросмотр построен</b><p>Групп: ${previewInfo.labels.length}. Кольцевых уровней: ${previewInfo.maxRing}. Возможные пересечения: ${previewInfo.collisions}.</p>
     <div class="controls"><button class="btn primary" data-act="apply-group">Применить</button><button class="btn" data-act="cancel-group">Отменить</button></div></div>`;
   else html+=`<button class="btn primary" data-act="preview-group">◎ Построить предпросмотр</button>`;
@@ -1305,6 +1428,7 @@ async function encryptedExport(){
  }catch(e){notify("Ошибка шифрования: "+e.message);}
 }
 async function importData(file){
+ const target=mapId;
  if(file.size>128*1024*1024){notify("Импорт поддерживает файлы до 128 МБ");return;}
  try{
   let raw=JSON.parse(await file.text());
@@ -1317,13 +1441,14 @@ async function importData(file){
    const key=await cryptKey(password,salt,"decrypt");
    raw=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv},key,cipher)));
   }
+  if(target!==mapId||switching)throw Error("Активная карта изменилась");
   const next=validate(raw);
   if(data.people.length&&!confirm("Заменить текущий граф?"))return;
   root.inert=true;
   clearTimeout(pendingSave);
   try{await enqueueSave(JSON.stringify(next));dirty=false;}finally{root.inert=false;}
   remember("Импорт графа");
-  data=next;preview=null;route=[];closeSide();closeRight();draw();
+  data=next;updateViewIndicator();preview=null;route=[];closeSide();closeRight();draw();
   notify(`Загружено ${data.people.length} людей`);
  }catch(e){if(dirty)persist();notify("Импорт не выполнен: "+e.message);}
 }
@@ -1413,22 +1538,28 @@ function showPath(){
  out.innerHTML=found===null?"Связь не найдена.":`<b>Длина цепочки: ${found.length}</b><p>${h([full(get(a)),...found.map(x=>full(get(x.to)))].join(" → "))}</p>
  ${only?`<p class="muted">Определение: ${h(kinLabel(a,b).label)}. Кровная степень: ${bloodDegree(a,b)??"не определена"}.</p>`:""}`;
 }
+function updateViewIndicator(){
+ const v=data.savedViews.find(v=>v.name===data.activeView);
+ const changed=v&&(["view","group","filters","settings"].some(k=>JSON.stringify(data[k])!==JSON.stringify(v[k]))||
+ v.positions.length!==data.people.length||data.people.some((n,i)=>{const p=v.positions[i];return !p||p[0]!==n.id||p[1]!==n.x||p[2]!==n.y;}));
+ $("view-state").textContent=v?"Вид «"+v.name+"»"+(changed?" · изменён":""):"";
+}
 function manageView(action){
  const index=Number($("view-list")?.value??-1),view=data.savedViews[index];
- if(action==="save"){
-  const name=$("view-name").value.trim().slice(0,80);
+ if(action==="save"||action==="update"){
+  const name=action==="update"?data.activeView:$("view-name").value.trim().slice(0,80);
   if(!name)return notify("Введите название вида");
   const i=data.savedViews.findIndex(v=>v.name===name);
   if(i<0&&data.savedViews.length>=32)return notify("Можно сохранить до 32 видов");
   if(i>=0&&!confirm("Обновить вид «"+name+"»?"))return;
   remember("Сохранён вид "+name);
-  data.savedViews[i<0?data.savedViews.length:i]={name,settings:clone(data.settings),filters:clone(data.filters),group:clone(data.group),view:clone(data.view),positions:data.people.map(n=>[n.id,n.x,n.y])};
+  data.activeView=name;data.savedViews[i<0?data.savedViews.length:i]={name,settings:clone(data.settings),filters:clone(data.filters),group:clone(data.group),view:clone(data.view),positions:data.people.map(n=>[n.id,n.x,n.y])};
  }else if(view){
   if(action==="remove"&&!confirm("Удалить вид «"+view.name+"»?"))return;
   remember("Виды: "+view.name);
-  if(action==="remove")data.savedViews.splice(index,1);
+  if(action==="remove"){data.savedViews.splice(index,1);if(view.name===data.activeView)data.activeView=null;}
   else{
-   for(const key of ["settings","filters","group","view"])data[key]=clone(view[key]);
+   data.activeView=view.name;for(const key of ["settings","filters","group","view"])data[key]=clone(view[key]);
    if(!get(data.filters.focus))data.filters.focus=null;
    const coords=new Map(view.positions.map(([id,x,y])=>[id,[x,y]]));
    for(const n of data.people)if(coords.has(n.id))[n.x,n.y]=coords.get(n.id);
@@ -1437,7 +1568,16 @@ function manageView(action){
  }else return;
  preview=null;previewInfo=null;finish();renderRight();
 }
-function phoneKey(s){return fmt(s).trim().replace(/[ ()\-.]/g,"");}
+
+const phoneCache=new Map();
+function phoneKey(s){
+ const raw=fmt(s).trim().replace(/[ ()\-.]/g,"").replace(/^00/,"+");
+ if(!/^\+?\d{5,15}$/.test(raw))return "";
+ if(!window.KartaFiles?.normalizePhone)return raw;
+ if(!phoneCache.has(raw))phoneCache.set(raw,window.KartaFiles.normalizePhone(raw));
+ return phoneCache.get(raw);
+}
+function isoDate(v){return typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;}
 function callCount(n){return n.calls&&n.calls.phone===phoneKey(n.phone)?n.calls.count:null;}
 function phoneRows(){
  const rows=data.people.map(n=>({id:n.id,phone:phoneKey(n.phone)})).filter(r=>/^\+?\d{5,15}$/.test(r.phone));
@@ -1445,19 +1585,25 @@ function phoneRows(){
  for(const row of rows){if(seen.has(row.phone))duplicates.add(row.phone);seen.add(row.phone);}
  return rows.filter(r=>!duplicates.has(r.phone));
 }
-function applyCounts(rows,totals){
+function applyCounts(rows,totals,meta){
  remember("Обновлена статистика звонков");
  const phones=new Map(rows.map(r=>[r.id,r.phone]));
  for(const n of data.people){
   delete n.calls;
   if(phones.get(n.id)!==phoneKey(n.phone)||!Object.hasOwn(totals,n.id))continue;
   const count=totals[n.id];
-  if(Number.isSafeInteger(count)&&count>=0)n.calls={phone:phoneKey(n.phone),count,asOf:today()};
+  if(Number.isSafeInteger(count)&&count>=0)n.calls={phone:phoneKey(n.phone),count,asOf:today(),...meta};
  }
  data.group.ringBy="calls";finish();openRight("group");groupPreview();
 }
-let pendingCalls=null;
+let pendingCalls=null,pickerMap=null;
+function pickPhone(calls){
+ if(pickerMap||pendingCalls)return notify("Выбор или подсчёт уже начат");
+ pickerMap=mapId;try{window.KartaFiles.pickPhone(calls);}catch(e){pickerMap=null;notify(e.message);}
+}
+window.kartaPickCancelled=()=>{pickerMap=null;};
 function refreshCalls(){
+ if(pendingCalls)return notify("Подсчёт уже идёт");
  const rows=phoneRows();
  if(!rows.length)return notify("Нужен хотя бы один уникальный номер в карточках");
  const token=id();pendingCalls={token,rows,graph:data};
@@ -1466,9 +1612,10 @@ function refreshCalls(){
 window.kartaCallTotals=(token,counts)=>{
  const request=pendingCalls;if(!request||request.token!==token)return;
  pendingCalls=null;
- if(counts&&request.graph===data&&!editingBase)applyCounts(request.rows,counts);
+ if(counts&&request.graph===data&&!editingBase)applyCounts(request.rows,counts,{source:"device",start:new Date(Date.now()-90*86400000).toISOString().slice(0,10),end:today()});
 };
 window.kartaPickedPhone=(name,phone,analyze)=>{
+ const target=pickerMap;pickerMap=null;if(target&&target!==mapId)return;
  if(editingBase||!persistentReady||!phoneKey(phone))return;
  const matches=data.people.filter(n=>phoneKey(n.phone)===phoneKey(phone));
  if(matches.length>1)return notify("Номер уже указан у нескольких людей");
@@ -1481,26 +1628,34 @@ window.kartaPickedPhone=(name,phone,analyze)=>{
 };
 async function importCounts(file){
  if(!file)return;
+ const target=mapId;
  try{
   if(file.size>2*1024*1024)throw Error("Максимум 2 МБ");
   const lines=(await file.text()).trim().split(/\r?\n/);
-  if(!/^phone[,;]count$/i.test(lines.shift()?.trim()))throw Error("Нужен заголовок phone,count");
+  if(target!==mapId||switching)throw Error("Активная карта изменилась");
+  const header=lines.shift()?.trim().toLowerCase().replaceAll(";",",");
+  const dated=header==="phone,count,start,end",meta={source:"csv",start:"",end:""};
+  if(!dated&&header!=="phone,count")throw Error("Нужен заголовок phone,count или phone,count,start,end");
   const byPhone=new Map();
   for(const [i,line] of lines.entries()){
    if(!line.trim())continue;
    const parts=line.split(/[,;]/),key=phoneKey(parts[0]),count=Number(parts[1]);
-   if(parts.length!==2||!/^\+?\d{5,15}$/.test(key)||!/^\d+$/.test(parts[1].trim())||!Number.isSafeInteger(count)||byPhone.has(key))throw Error("Проверьте строку "+(i+2));
+   if(dated){const [start,end]=parts.slice(2);if(!isoDate(start)||!isoDate(end)||start>end||(meta.start&&(meta.start!==start||meta.end!==end)))throw Error("Проверьте период в строке "+(i+2));Object.assign(meta,{start,end});}
+   if(parts.length!==(dated?4:2)||!/^\+?\d{5,15}$/.test(key)||!/^\d+$/.test(parts[1].trim())||!Number.isSafeInteger(count)||byPhone.has(key))throw Error("Проверьте строку "+(i+2));
    byPhone.set(key,count);
   }
   const rows=phoneRows(),counts=Object.create(null);
   for(const r of rows)if(byPhone.has(r.phone))counts[r.id]=byPhone.get(r.phone);
   const matched=Object.keys(counts).length;
   if(!matched)throw Error("Нет однозначных совпадений с номерами в карточках");
-  if(confirm("Совпавших карточек: "+matched+". Заменить предыдущую статистику?"))applyCounts(rows,counts);
+  const lost=data.people.filter(n=>n.calls&&!Object.hasOwn(counts,n.id)).length;
+  if(confirm("Совпавших карточек: "+matched+". Период: "+(meta.start?meta.start+" — "+meta.end:"не указан")+". Удалятся прежние итоги у "+lost+" карточек. Применить?"))applyCounts(rows,counts,meta);
  }catch(e){notify(e.message);}
 }
+
 const actions={
- "pick-phone":()=>window.KartaFiles.pickPhone(false),"pick-calls":()=>window.KartaFiles.pickPhone(true),"refresh-calls":refreshCalls,
+ "new-map":newMap,"rename-map":renameMap,"directory":showDirectory,"update-view":()=>manageView("update"),
+ "pick-phone":()=>pickPhone(false),"pick-calls":()=>pickPhone(true),"refresh-calls":refreshCalls,
  "save-view":()=>manageView("save"),"load-view":()=>manageView("load"),"remove-view":()=>manageView("remove"),
  "protect-local":protectLocal,
  "edit-profile":()=>profileDraft(true),"save-profile":()=>profileDraft(false,true),"cancel-profile":()=>profileDraft(false),
@@ -1546,7 +1701,10 @@ const actions={
  export:()=>download("karta-svyazey-v2.json",JSON.stringify(data,null,2),"application/json"),
  "encrypted-export":encryptedExport,import:()=>$("kv2-import").click(),
  html:()=>{
-  download("karta-svyazey-2.1.html",`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей</title><style>html,body{margin:0;background:#f9f3eb}#kv2{height:100dvh!important;border:0;border-radius:0}</style></head><body>${originalSource}</body></html>`,"text/html;charset=utf-8");
+  download("karta-svyazey-2.1.html",`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей</title><style>html,body{margin:0;background:#f9f3eb}#kv2{height:100dvh!important;border:0;border-radius:0}#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
+#kv2 .maps [aria-pressed=true]{background:#503e32;color:white}
+#kv2 .main{top:99px}#kv2 .maps span{font-size:12px}#map-tabs{display:flex;gap:3px}
+</style></head><body>${originalSource}</body></html>`,"text/html;charset=utf-8");
   notify("Запрошена загрузка HTML");
  },
  duplicates,demo,checks:selfCheck,
@@ -1558,6 +1716,7 @@ root.addEventListener("click",ev=>{
   ev.preventDefault();const [header,bytes]=attachment.href.split(",");
   window.KartaFiles.save(attachment.download,header.slice(5).split(";")[0],bytes,true);return;
  }
+ const tab=ev.target.closest("[data-map]");if(tab){switchMap(tab.dataset.map);return;}
  const btn=ev.target.closest("[data-act]");
  if(btn&&actions[btn.dataset.act]){actions[btn.dataset.act]();return;}
  const menu=ev.target.closest("[data-menu]");
@@ -1572,7 +1731,7 @@ root.addEventListener("click",ev=>{
   return;
  }
  const go=ev.target.closest("[data-go]");
- if(go){openSide("person",go.dataset.go);return;}
+ if(go){searchReturn=pane==="directory";if(searchReturn)closeRight();openSide("person",go.dataset.go);if(searchReturn)side.querySelector("button")?.focus();return;}
  const edit=ev.target.closest("[data-editlink]");
  if(edit){openSide("link",edit.dataset.editlink);return;}
  for(const [dataset,kind,key] of [["removeLink","link","links"],["removeContact","contact","contacts"],["removeDoc","doc","docs"],["removeExtra","extra","extra"],["removeStatus","status","maritalEvents"]]){
@@ -1703,7 +1862,7 @@ svg.addEventListener("pointermove",ev=>{
  else if(!preview&&(pointer.kind==="person"||pointer.kind==="label")){
   const target=pointer.kind==="person"?get(pointer.id):getLabel(pointer.id);
   if(target){
-   if(!pointer.recorded){remember("Перемещение элемента");pointer.recorded=true;}
+   if(!pointer.recorded){remember("Перемещение элемента",moveState(pointer.kind,target));pointer.recorded=true;}
    target.x+=dx/data.view.k;target.y+=dy/data.view.k;
   }
  }
@@ -1756,6 +1915,7 @@ svg.addEventListener("dblclick",ev=>{
 });
 root.addEventListener("keydown",ev=>{
  if(editingBase){if(ev.key==="Escape")profileDraft(false);return;}
+ if(ev.key==="Escape"&&searchReturn){closeSide();return;}
  if(ev.key==="Escape"){mode="select";anchor=null;preview=null;previewInfo=null;route=[];$("kv2-menu").hidden=true;$("kv2-link-btn").classList.remove("active");draw();}
  if(!ev.target.closest("input,textarea,select")&&(ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==="z"){ev.preventDefault();rollback(ev.shiftKey?"redo":"undo");}
  if((ev.key==="Delete"||ev.key==="Backspace")&&selected&&!["INPUT","TEXTAREA","SELECT"].includes(ev.target.tagName)){ev.preventDefault();deleteSelected();}

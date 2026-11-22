@@ -13,6 +13,6 @@
 
 ## Разработка и проверка
 
-Файлы для редактирования находятся в src. Команда `python build.py` собирает автономный Karta-2.1.html. Имя сохранено для совместимости с Windows-запускателем. Установите Python, Playwright и Chromium. Переменная CHROMIUM может указывать на исполняемый файл браузера. Запустите test-browser.py, test-rings.py, test-views-calls.py и test-workspaces.py. benchmark.py измеряет импорт, открытие фильтров и перемещение с записью на синтетических графах.
+Файлы для редактирования находятся в src. Команда `python build.py` собирает автономный Karta-2.1.html. Имя сохранено для совместимости с Windows-запускателем. Установите Python, Playwright и Chromium. Переменная CHROMIUM может указывать на исполняемый файл браузера. Запустите test-browser.py, test-rings.py, test-views-calls.py и test-workspaces.py. benchmark.py измеряет импорт, открытие фильтров, перетаскивание, отмену и масштабирование двумя пальцами на синтетических графах с фото и вложениями. Для последних трёх действий тест дожидается изменения в IndexedDB.
 
 Android требует JDK 17, Android SDK Platform 35 и Build Tools 35.0.0. Workflow windows.yml проверяет запуск EXE, редактор и Android на эмуляторе. Для отдельной подписанной сборки workflow release.yml использует окружение android-release, секреты KARTA_KEY_BASE64 и KARTA_KEY_PASSWORD и переменную KARTA_CERT_SHA256 (SHA-256 сертификата без двоеточий в нижнем регистре). Обновления Android требуют того же идентификатора пакета и сертификата подписи. Храните резервную копию ключа вне репозитория.

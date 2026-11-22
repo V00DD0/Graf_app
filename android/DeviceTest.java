@@ -32,6 +32,14 @@ public class DeviceTest extends Instrumentation {
         for(int i=0;i<60;i++){if(press(getUiAutomation().getRootInActiveWindow(),label))return;Thread.sleep(250);}
         throw new AssertionError("Control unavailable: "+label);
     }
+    private void waitForPicker() throws Exception{
+        for(int i=0;i<100;i++){
+            AccessibilityNodeInfo root=getUiAutomation().getRootInActiveWindow();
+            if(root!=null&&root.getPackageName()!=null&&root.getPackageName().toString().contains("contacts"))return;
+            Thread.sleep(200);
+        }
+        throw new AssertionError("System contact picker did not appear");
+    }
     @Override public void onStart(){
         Bundle out=new Bundle();
         try{
@@ -49,21 +57,22 @@ public class DeviceTest extends Instrumentation {
                 out.putString("stream","PASS: upgrade seed");finish(Activity.RESULT_OK,out);return;
             }
             await("document.querySelector('svg').textContent.includes('Upgrade marker')");
-            eval("document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-calls]').click()");
-            Thread.sleep(1200);
             if("denied".equals(mode)){
-                sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
-                Thread.sleep(600);
+                eval("window.qaCancelled=false;const oldCancel=window.kartaPickCancelled;window.kartaPickCancelled=()=>{oldCancel();window.qaCancelled=true};document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-calls]').click()");
+                waitForPicker();
+                try(android.os.ParcelFileDescriptor cmd=getUiAutomation().executeShellCommand("input keyevent 4")){
+                    new android.os.ParcelFileDescriptor.AutoCloseInputStream(cmd).read();
+                }
+                await("window.qaCancelled===true");
                 eval("document.querySelector('[data-act=pick-calls]').click()");
-            }
-            clickText("QA Contact");
-            if("denied".equals(mode)){
-                clickText("Отмена");
+                waitForPicker();clickText("QA Contact");
+                eval("window.qaCancelTotal=false;const cancelTotals=window.kartaCallTotals;window.kartaCallTotals=(...a)=>{cancelTotals(...a);window.qaCancelTotal=a[1]===null}");
+                clickText("Отмена");await("window.qaCancelTotal===true");
                 await("document.querySelector('svg').textContent.includes('QA Contact')");
-                eval("document.querySelector('[data-act=pick-calls]').click()");
-                eval("window.qaDenied=false;const oldTotals=window.kartaCallTotals;window.kartaCallTotals=(...a)=>{window.qaDenied=a[1]===null;oldTotals(...a)}");
-                clickText("QA Contact");clickText("Продолжить");
-                Thread.sleep(800);
+            }
+            eval("window.qaDenied=false;const oldTotals=window.kartaCallTotals;window.kartaCallTotals=(...a)=>{window.qaDenied=a[1]===null;oldTotals(...a)};document.querySelector('[data-act=group]').click();document.querySelector('[data-act=refresh-calls]').click()");
+            if("denied".equals(mode)){
+                clickText("Продолжить");
                 await("window.qaDenied && document.querySelector('svg').textContent.includes('QA Contact') && !document.querySelector('[data-act=apply-group]')");
                 out.putString("stream","PASS: picker cancel, consent cancel, permission denied, contact retained");finish(Activity.RESULT_OK,out);return;
             }

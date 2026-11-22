@@ -16,7 +16,7 @@ function restoreTabs(){
 const mapKey=(id,key)=>id==="home"?key:"map/"+id+"/"+key;
 function saveIndicator(){
  const el=$("save-state");if(!el)return;
- el.textContent=saveError?"Только в памяти · "+saveError:dirty||writesPending?"Сохраняется…":"Сохранено";
+ el.textContent=editingBase?"Черновик карточки":saveError?"Только в памяти · "+saveError:dirty||writesPending?"Сохраняется…":"Сохранено";
  $("rescue").hidden=!saveError;
 }
 function showTabs(){

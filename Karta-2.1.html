@@ -220,7 +220,7 @@ function restoreTabs(){
 const mapKey=(id,key)=>id==="home"?key:"map/"+id+"/"+key;
 function saveIndicator(){
  const el=$("save-state");if(!el)return;
- el.textContent=saveError?"Только в памяти · "+saveError:dirty||writesPending?"Сохраняется…":"Сохранено";
+ el.textContent=editingBase?"Черновик карточки":saveError?"Только в памяти · "+saveError:dirty||writesPending?"Сохраняется…":"Сохранено";
  $("rescue").hidden=!saveError;
 }
 function showTabs(){
@@ -403,6 +403,19 @@ async function loadStore(){
   lock.className="lock";lock.innerHTML='<h2>Не удалось открыть локальную карту</h2><p></p><button>Попробовать снова</button>';
   lock.querySelector("p").textContent=e.message;
   lock.querySelector("button").onclick=()=>location.reload();
+  if(mapNames.size>1){
+   const choose=document.createElement("select");choose.setAttribute("aria-label","Открыть другую карту");
+   choose.add(new Option("Открыть другую карту…",""));
+   for(const [key,name] of mapNames)choose.add(new Option(name,key));
+   choose.onchange=async()=>{
+    const target=choose.value;if(!target)return;
+    choose.disabled=true;
+    try{installMap(target,await readMap(target));persistentReady=true;root.inert=false;lock.remove();}
+    catch(error){lock.querySelector("p").textContent=error.message;}
+    finally{choose.disabled=false;choose.value="";}
+   };
+   lock.append(choose);
+  }
   document.body.append(lock);
  }
 }
@@ -796,8 +809,8 @@ function profileDraft(start,save=false){
   data=editingBase;editingBase=null;
   if(save){recordProfile(get(selected.id),edited.people.find(p=>p.id===selected.id));remember("Сохранена карточка");data={...edited,audit:data.audit};preview=null;previewInfo=null;persist();}
  }
- for(const el of [root.querySelector("header"),$("kv2-view"),right])el.inert=!!editingBase;
- renderSide();draw();
+ for(const el of [root.querySelector("header"),root.querySelector(".maps"),$("kv2-view"),right])el.inert=!!editingBase;
+ saveIndicator();renderSide();draw();
 }
 function renderSide(){
  if(!selected)return;

@@ -29,3 +29,4 @@ seed 3 0 "$now"
 seed 2 0 "$now"
 seed 1 120 "$((now-95*86400))"
 test_mode calls
+python3 android/test-upgrade.py

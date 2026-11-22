@@ -20,10 +20,15 @@ public class DeviceTest extends Instrumentation {
     }
     private boolean press(AccessibilityNodeInfo node,String label){
         if(node==null)return false;
-        if(label.contentEquals(node.getText()==null?"":node.getText())&&node.isClickable())
+        if(label.equalsIgnoreCase(node.getText()==null?"":node.getText().toString())&&node.isClickable())
             return node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
         for(int i=0;i<node.getChildCount();i++)if(press(node.getChild(i),label))return true;
         return false;
+    }
+    private void describe(AccessibilityNodeInfo n,StringBuilder text){
+        if(n==null||text.length()>1000)return;
+        if(n.getText()!=null)text.append(n.getText()).append("|");
+        for(int i=0;i<n.getChildCount();i++)describe(n.getChild(i),text);
     }
     @Override public void onStart(){
         Bundle out=new Bundle();
@@ -34,10 +39,15 @@ public class DeviceTest extends Instrumentation {
             Activity activity=startActivitySync(intent);
             runOnMainSync(()->web=(WebView)((android.view.ViewGroup)activity.findViewById(android.R.id.content)).getChildAt(0));
             await("!!document.querySelector('#kv2')&&!document.querySelector('#kv2').inert");
+            await("typeof window.kartaPickedPhone===\u0027function\u0027 && typeof window.KartaFiles.analyzeCalls===\u0027function\u0027");
             eval("window.kartaPickedPhone('Проверка','+12025550137',true)");
             boolean clicked=false;
             for(int i=0;i<60&&!clicked;i++){clicked=press(getUiAutomation().getRootInActiveWindow(),"Продолжить");Thread.sleep(250);}
-            if(!clicked)throw new AssertionError("Consent dialog was not displayed");
+            if(!clicked){
+                StringBuilder visible=new StringBuilder();
+                describe(getUiAutomation().getRootInActiveWindow(),visible);
+                throw new AssertionError("Consent button unavailable. UI="+visible+" editor="+eval("document.body.innerText.slice(-400)"));
+            }
             await("!!document.querySelector('[data-act=apply-group]')");
             eval("document.querySelector('[data-act=apply-group]').click()");
             await("!document.querySelector('[data-act=apply-group]')");

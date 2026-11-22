@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
+python3 android/test-upgrade.py
 pkg=local.karta.preview24
-adb install -r Karta-upgrade-base.apk
-adb install -r Karta-device-test.apk
+adb install --no-incremental -r Karta-upgrade-base.apk
+adb install --no-incremental -r Karta-device-test.apk
 test_mode(){
  adb shell am instrument -w -e mode "$1" local.karta.qa/local.karta.qa.DeviceTest | tee device-result.txt
- grep -F "PASS:" device-result.txt
+ if ! grep -F "PASS:" device-result.txt; then
+  adb logcat -b crash -d -t 80
+  return 1
+ fi
 }
 test_mode seed
-adb install -r Karta-2.4-test.apk
+adb install --no-incremental -r Karta-2.4-test.apk
 # Insert only fictional fixture data on the disposable emulator.
 adb shell content insert --uri content://com.android.contacts/raw_contacts --bind account_type:s:local --bind account_name:s:karta-qa
 raw=$(adb shell content query --uri content://com.android.contacts/raw_contacts --projection _id --where "account_name=\'karta-qa\'" | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | tail -1)
@@ -29,4 +33,3 @@ seed 3 0 "$now"
 seed 2 0 "$now"
 seed 1 120 "$((now-95*86400))"
 test_mode calls
-python3 android/test-upgrade.py

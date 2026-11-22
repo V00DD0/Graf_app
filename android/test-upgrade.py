@@ -25,13 +25,13 @@ def tap(node):
 
 if __name__ == "__main__":
     downloads=Path(__file__).resolve().parents[1]/"downloads"
-    adb("install","-r",str(downloads/"Karta-2.2-test.apk"))
+    adb("install","--no-incremental","-r",str(downloads/"Karta-2.2-test.apk"))
     start()
     tap(find("＋ Человек"))
     find("1/1 людей")
     time.sleep(1)
     adb("shell","am","force-stop",package)
-    adb("install","-r",str(downloads/"Karta-2.4-test.apk"))
+    adb("install","--no-incremental","-r",str(downloads/"Karta-2.4-test.apk"))
     start()
     find("1/1 людей")
     print("PASS: published 2.2 → 2.4 in-place APK update retained the original graph")

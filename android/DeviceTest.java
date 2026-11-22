@@ -60,13 +60,11 @@ public class DeviceTest extends Instrumentation {
             if("denied".equals(mode)){
                 eval("window.qaCancelled=false;const oldCancel=window.kartaPickCancelled;window.kartaPickCancelled=()=>{oldCancel();window.qaCancelled=true};document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-calls]').click()");
                 waitForPicker();
-                try(android.os.ParcelFileDescriptor cmd=getUiAutomation().executeShellCommand("input keyevent 4")){
-                    new android.os.ParcelFileDescriptor.AutoCloseInputStream(cmd).read();
-                }
+                sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
                 await("window.qaCancelled===true");
                 eval("document.querySelector('[data-act=pick-calls]').click()");
-                waitForPicker();clickText("QA Contact");
                 eval("window.qaCancelTotal=false;const cancelTotals=window.kartaCallTotals;window.kartaCallTotals=(...a)=>{cancelTotals(...a);window.qaCancelTotal=a[1]===null}");
+                waitForPicker();clickText("QA Contact");
                 clickText("Отмена");await("window.qaCancelTotal===true");
                 await("document.querySelector('svg').textContent.includes('QA Contact')");
             }

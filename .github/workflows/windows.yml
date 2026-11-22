@@ -1,7 +1,7 @@
 name: Windows launcher and browser
 on:
   push:
-    branches: [feature/individual-rings-2.2]
+    branches: [feature/views-and-calls-2.3]
   workflow_dispatch:
 env:
   PYTHONUTF8: '1'
@@ -29,3 +29,25 @@ jobs:
           python test-browser.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python test-rings.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python test-views-calls.py
+      - name: Package desktop app
+        shell: pwsh
+        run: Compress-Archive Karta.exe,Karta-2.1.html Karta-2.3-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Karta-2.3-Windows
+          path: Karta-2.3-Windows.zip
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: bash android/build-test.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Karta-2.3-Android
+          path: Karta-2.3-test.apk

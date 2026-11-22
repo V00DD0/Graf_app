@@ -33,6 +33,8 @@ jobs:
           python test-views-calls.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python test-workspaces.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python test-passwords.py
       - name: Package desktop app
         shell: pwsh
         run: Compress-Archive Karta.exe,Karta-2.1.html Karta-2.4-Windows.zip

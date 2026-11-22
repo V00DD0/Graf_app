@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.4</title></head><body><div id="kv2" class="kv2">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.4.1</title></head><body><div id="kv2" class="kv2">
 <style>
 html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px solid #cdc1ae;border-radius:12px;padding:22px;background:#fffaf4}dialog label{display:block;margin:12px 0}dialog::backdrop{background:#40393066}.lock{position:fixed;inset:25% 10% auto;z-index:50}#kv2.kv2{height:100dvh;border:0;border-radius:0}#kv2 .draft{position:sticky;top:0;background:#fffaf4;z-index:2;padding:5px}
 #kv2{font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#453e35;background:#fff;border:1px solid #ddd3c5;border-radius:14px;overflow:hidden;position:relative;isolation:isolate;height:760px}
@@ -77,7 +77,7 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px sol
 #kv2 .main{top:99px}#kv2 .maps span{font-size:12px}#map-tabs{display:flex;gap:3px}
 </style>
 <header class="bar">
-  <span class="brand">◉ Карта связей 2.4</span>
+  <span class="brand">◉ Карта связей 2.4.1</span>
   <button class="btn primary" data-act="new">＋ Человек</button>
   <button class="btn" data-act="link" id="kv2-link-btn">⇄ Связь</button>
   <button class="btn" data-act="label">T</button>
@@ -360,19 +360,45 @@ async function internalKey(password,salt){
  const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveKey"]);
  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:220000,hash:"SHA-256"},material,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
 }
+function passwordError(value){
+ const missing=[];
+ if(Array.from(value).length<8)missing.push("не менее 8 символов");
+ if(!/\p{Ll}/u.test(value))missing.push("строчная буква");
+ if(!/\p{Lu}/u.test(value))missing.push("заглавная буква");
+ if(!/\p{Nd}/u.test(value))missing.push("цифра");
+ if(!/[\p{P}\p{S}]/u.test(value))missing.push("спецсимвол");
+ return missing.length?"Требуется: "+missing.join(", ")+".":"";
+}
 function askSecret(title,verify=false){
  return new Promise(resolve=>{
   const dlg=document.createElement("dialog");
-  dlg.innerHTML='<form method="dialog"><h3></h3><label>Пароль <input type="password" required autocomplete="off"></label>'+ (verify?'<label>Повторите пароль <input type="password" required autocomplete="off"></label>':'')+'<p role="alert"></p><button value="ok">Продолжить</button> <button value="cancel" formnovalidate>Отмена</button></form>';
+  dlg.setAttribute("aria-labelledby","secret-title");
+  dlg.innerHTML='<form method="dialog"><h3 id="secret-title"></h3>'+
+   (verify?'<p id="secret-rules">Минимум 8 символов, включая заглавную и строчную буквы, цифру и спецсимвол (например, ! или #).</p>':'')+
+   '<label>Пароль <input name="secret" type="password" required autofocus></label>'+
+   (verify?'<label>Повторите пароль <input name="confirmation" type="password" required autocomplete="new-password"></label><label><input name="visible" type="checkbox"> Показать оба поля пароля</label>':'')+
+   '<p role="alert"></p><button value="ok">Продолжить</button> <button value="cancel" formnovalidate>Отмена</button></form>';
   dlg.querySelector("h3").textContent=title;
-  const inputs=dlg.querySelectorAll("input");
-  dlg.querySelector("form").onsubmit=e=>{
-   if(e.submitter?.value==="cancel")return;
-   if(verify&&(inputs[0].value.length<10||inputs[0].value!==inputs[1].value)){
-    e.preventDefault();dlg.querySelector("p").textContent="Нужно не менее 10 символов. Пароли должны совпадать.";
-   }
+  const form=dlg.querySelector("form"),{secret,confirmation,visible}=form.elements;
+  const alert=dlg.querySelector('[role="alert"]');
+  secret.autocomplete=verify?"new-password":"current-password";
+  if(verify){
+   secret.setAttribute("aria-describedby","secret-rules");
+   visible.onchange=()=>{secret.type=confirmation.type=visible.checked?"text":"password";};
+   form.oninput=()=>{alert.textContent="";};
+   form.onsubmit=e=>{
+    if(e.submitter?.value==="cancel")return;
+    const error=passwordError(secret.value);
+    if(error||secret.value!==confirmation.value){
+     e.preventDefault();alert.textContent=error||"Пароли не совпадают.";
+     (error?secret:confirmation).focus();
+    }
+   };
+  }
+  dlg.onclose=()=>{
+   const result=dlg.returnValue==="ok"?secret.value:null;
+   form.reset();dlg.remove();resolve(result);
   };
-  dlg.onclose=()=>{const result=dlg.returnValue==="ok"?inputs[0].value:null;dlg.remove();resolve(result);};
   document.body.append(dlg);dlg.showModal();
  });
 }
@@ -1454,7 +1480,6 @@ async function encryptedExport(){
  if(!globalThis.crypto?.subtle){notify("Web Crypto недоступен в этом окружении");return;}
  const pass=await askSecret("Пароль резервной копии",true);
  if(pass===null)return;
- if(pass.length<10){notify("Пароль слишком короткий");return;}
  try{
   const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const key=await cryptKey(pass,salt,"encrypt");

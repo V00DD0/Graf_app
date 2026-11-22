@@ -16,6 +16,8 @@ with sync_playwright() as pw:
     p.locator('#kv2-import').set_input_files({"name":"map.json","mimeType":"application/json","buffer":json.dumps(source).encode()})
     expect(p.locator(".node")).to_have_count(5)
     act("settings")
+    for section in ["rings","views"]:
+        p.locator(f'[data-appearance-section="{section}"] summary').click()
     p.locator('[data-setting="rings.on"]').check()
     p.locator('[data-setting="rings.individual"]').check()
     edit('[data-setting="rings.count"]',4)
@@ -34,7 +36,7 @@ with sync_playwright() as pw:
     values=p.locator(".node").evaluate_all("(els)=>Object.fromEntries(els.map(e=>{const m=e.transform.baseVal.getItem(0).matrix;return [e.dataset.person,Math.round(Math.hypot(m.e,m.f))]}))")
     assert values['0']<values['1']==values['2']<values['3']==values['4'],values
     p.wait_for_timeout(500);p.reload()
-    act("settings");expect(p.locator("#view-list option")).to_have_count(2)
+    act("settings");p.locator('[data-appearance-section="views"] summary').click();expect(p.locator("#view-list option")).to_have_count(2)
     p.locator("#view-list").select_option(label="Работа");act("load-view")
     expect(p.locator(".ring-name")).to_have_text("Коллеги")
     print("PASS: ring names and saved layouts restored; counts 30/10/10/0/unknown mapped to",values)

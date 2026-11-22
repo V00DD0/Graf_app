@@ -15,6 +15,7 @@ with sync_playwright() as driver:
     def action(name):
         page.locator(f'[data-act="{name}"]:visible').first.click()
     action("settings")
+    page.locator('[data-appearance-section="rings"] summary').click()
     setting("rings.on").check()
     setting("rings.individual").check()
     edit("rings.count", 4)
@@ -31,6 +32,7 @@ with sync_playwright() as driver:
     page.wait_for_timeout(400)
     page.reload()
     action("settings")
+    page.locator('[data-appearance-section="rings"] summary').click()
     expect(setting("radius.3")).to_have_value("345")
     setting("rings.individual").uncheck()
     expect(setting("rings.step")).to_be_visible()

@@ -1,61 +1,61 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.4.1</title></head><body><div id="kv2" class="kv2">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.4.2</title></head><body><div id="kv2" class="kv2">
 <style>
-html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px solid #cdc1ae;border-radius:12px;padding:22px;background:#fffaf4}dialog label{display:block;margin:12px 0}dialog::backdrop{background:#40393066}.lock{position:fixed;inset:25% 10% auto;z-index:50}#kv2.kv2{height:100dvh;border:0;border-radius:0}#kv2 .draft{position:sticky;top:0;background:#fffaf4;z-index:2;padding:5px}
-#kv2{font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#453e35;background:#fff;border:1px solid #ddd3c5;border-radius:14px;overflow:hidden;position:relative;isolation:isolate;height:760px}
+html,body{margin:0}dialog,.lock{font:16px system-ui;color:var(--ui-ink,#42382d);border:1px solid var(--ui-line,#cdc1ae);border-radius:12px;padding:22px;background:var(--ui-surface,#fffaf4)}dialog label{display:block;margin:12px 0}dialog::backdrop{background:#40393066}.lock{position:fixed;inset:25% 10% auto;z-index:50}#kv2.kv2{height:100dvh;border:0;border-radius:0}#kv2 .draft{position:sticky;top:0;background:var(--ui-surface,#fffaf4);z-index:2;padding:5px}
+#kv2{font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ui-ink,#453e35);background:#fff;border:1px solid var(--ui-line,#ddd3c5);border-radius:14px;overflow:hidden;position:relative;isolation:isolate;height:760px}
 #kv2 *{box-sizing:border-box}
 #kv2 button,#kv2 input,#kv2 select,#kv2 textarea{font:inherit}
 #kv2 button{cursor:pointer}
 #kv2 [hidden]{display:none!important}
-#kv2 .bar{height:55px;display:flex;gap:5px;align-items:center;padding:6px;background:#f9f3ea;border-bottom:1px solid #e6dacb;position:relative;z-index:3;overflow-x:auto}
-#kv2 .brand{font-weight:800;white-space:nowrap;color:#76563a;margin-right:auto}
-#kv2 .btn{border:1px solid #dfd2c1;background:#fffdfa;color:#5b4b3b;min-height:32px;padding:6px 9px;border-radius:8px;white-space:nowrap}
-#kv2 .btn:hover{background:#efe6d8}
-#kv2 .btn.primary{background:#896547;border-color:#896547;color:white}
-#kv2 .btn.active{background:#e6d0b4;border-color:#be9870}
-#kv2 .btn.danger{color:#a5483c}
+#kv2 .bar{color:var(--ui-base-ink);height:55px;display:flex;gap:5px;align-items:center;padding:6px;background:var(--ui-base,#f9f3ea);border-bottom:1px solid var(--ui-line,#e6dacb);position:relative;z-index:3;overflow-x:auto}
+#kv2 .brand{font-weight:800;white-space:nowrap;color:var(--ui-base-ink,#76563a);margin-right:auto}
+#kv2 .btn{border:1px solid var(--ui-line,#dfd2c1);background:var(--ui-card,#fffdfa);color:var(--ui-ink,#5b4b3b);min-height:32px;padding:6px 9px;border-radius:8px;white-space:nowrap}
+#kv2 .btn:hover{background:var(--ui-soft,#efe6d8)}
+#kv2 .btn.primary{background:var(--ui-accent,#896547);border-color:var(--ui-accent,#896547);color:var(--ui-accent-ink,white)}
+#kv2 .btn.active{background:var(--ui-soft,#e6d0b4);border-color:var(--ui-line,#be9870)}
+#kv2 .btn.danger{color:var(--ui-danger,#a5483c)}
 #kv2 .main{position:absolute;left:0;right:0;top:55px;bottom:0}
 #kv2 .view{position:absolute;inset:0;background:#fff;overflow:hidden}
 #kv2.has-panel .view{left:330px}
 #kv2 .scene{height:100%;width:100%;touch-action:none;display:block;user-select:none;cursor:grab}
-#kv2 .side{position:absolute;top:0;bottom:0;left:0;width:330px;background:#fffbf5;border-right:1px solid #ded2c0;z-index:5;overflow:auto;box-shadow:3px 0 14px #42332617}
-#kv2 .right{position:absolute;right:0;top:0;bottom:0;width:315px;max-width:90%;z-index:6;background:#fbf7f0;border-left:1px solid #ded2c0;overflow:auto;box-shadow:-6px 0 20px #45392723}
-#kv2 .head{position:sticky;top:0;background:#f4ebdf;z-index:2;display:flex;gap:8px;align-items:center;padding:9px 11px;border-bottom:1px solid #e3d8ca}
+#kv2 .side{position:absolute;top:0;bottom:0;left:0;width:330px;background:var(--ui-surface,#fffbf5);border-right:1px solid var(--ui-line,#ded2c0);z-index:5;overflow:auto;box-shadow:3px 0 14px #42332617}
+#kv2 .right{position:absolute;right:0;top:0;bottom:0;width:315px;max-width:90%;z-index:6;background:var(--ui-surface,#fbf7f0);border-left:1px solid var(--ui-line,#ded2c0);overflow:auto;box-shadow:-6px 0 20px #45392723}
+#kv2 .head{color:var(--ui-base-ink);position:sticky;top:0;background:var(--ui-base,#f4ebdf);z-index:2;display:flex;gap:8px;align-items:center;padding:9px 11px;border-bottom:1px solid var(--ui-line,#e3d8ca)}
 #kv2 .head strong{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #kv2 .pad{padding:11px}
-#kv2 .field{display:block;font-size:12px;color:#706355;font-weight:550;margin:8px 0}
-#kv2 .field input,#kv2 .field textarea,#kv2 .field select{display:block;width:100%;border:1px solid #ddd0c1;background:white;border-radius:7px;padding:7px 8px;margin-top:4px;color:#403a34;min-height:32px}
+#kv2 .field{display:block;font-size:12px;color:var(--ui-muted,#706355);font-weight:550;margin:8px 0}
+#kv2 .field input,#kv2 .field textarea,#kv2 .field select{display:block;width:100%;border:1px solid var(--ui-line,#ddd0c1);background:var(--ui-card,white);border-radius:7px;padding:7px 8px;margin-top:4px;color:var(--ui-ink,#403a34);min-height:32px}
 #kv2 .field textarea{resize:vertical;min-height:56px}
 #kv2 .pair{display:flex;gap:7px;align-items:center}
 #kv2 .pair>*{min-width:0;flex:1}
 #kv2 .pair button{flex:0 0 auto}
-#kv2 .muted{font-size:11px;color:#897c70}
-#kv2 .chip{display:inline-block;background:#ede4d8;border-radius:18px;padding:2px 7px;font-size:11px;margin:2px 3px 2px 0}
-#kv2 .box{background:#f4eee5;border-radius:8px;padding:9px;margin:8px 0}
-#kv2 details{border:1px solid #e5dbce;background:white;border-radius:8px;margin:8px 0}
-#kv2 summary{padding:9px 10px;background:#faf6f0;border-radius:8px;font-weight:700;cursor:pointer}
+#kv2 .muted{font-size:11px;color:var(--ui-muted,#897c70)}
+#kv2 .chip{display:inline-block;background:var(--ui-soft,#ede4d8);border-radius:18px;padding:2px 7px;font-size:11px;margin:2px 3px 2px 0}
+#kv2 .box{background:var(--ui-soft,#f4eee5);border-radius:8px;padding:9px;margin:8px 0}
+#kv2 details{border:1px solid var(--ui-line,#e5dbce);background:var(--ui-card,white);border-radius:8px;margin:8px 0}
+#kv2 summary{color:var(--ui-base-ink);padding:9px 10px;background:var(--ui-base,#faf6f0);border-radius:8px;font-weight:700;cursor:pointer}
 #kv2 .details{padding:6px 10px 11px}
 #kv2 .node{cursor:move}
 #kv2 .edge{cursor:pointer}
 #kv2 .lab{cursor:move}
-#kv2 .hint{position:absolute;bottom:12px;left:12px;max-width:70%;background:#fffcf5ed;border-radius:8px;color:#897a6a;font-size:11px;padding:7px 10px;pointer-events:none}
+#kv2 .hint{position:absolute;bottom:12px;left:12px;max-width:70%;background:var(--ui-surface,#fffcf5ed);border-radius:8px;color:var(--ui-muted,#897a6a);font-size:11px;padding:7px 10px;pointer-events:none}
 #kv2 .zoom{position:absolute;right:12px;bottom:12px;display:flex;gap:4px}
-#kv2 .zoom button{width:34px;height:34px;border:1px solid #e5d9cb;border-radius:7px;background:#fffdf9}
-#kv2 .floating{position:absolute;z-index:10;left:12px;top:12px;background:#fffefb;border:1px solid #dfd2c2;border-radius:10px;box-shadow:0 7px 25px #352a2050;padding:6px;min-width:165px}
+#kv2 .zoom button{width:34px;height:34px;border:1px solid var(--ui-line,#e5d9cb);border-radius:7px;background:var(--ui-card,#fffdf9)}
+#kv2 .floating{position:absolute;z-index:10;left:12px;top:12px;background:var(--ui-card,#fffefb);border:1px solid var(--ui-line,#dfd2c2);border-radius:10px;box-shadow:0 7px 25px #352a2050;padding:6px;min-width:165px}
 #kv2 .floating button{display:block;width:100%;background:transparent;border:0;text-align:left;padding:8px;border-radius:5px}
-#kv2 .floating button:hover{background:#f3e9dd}
-#kv2 .toast{position:absolute;z-index:15;left:50%;bottom:55px;transform:translateX(-50%);background:#514337;color:#fff;border-radius:9px;padding:10px 14px;max-width:90%;text-align:center;pointer-events:none}
-#kv2 .portrait{height:140px;width:100%;background:#eee5da;object-fit:contain;border-radius:8px}
-#kv2 .placeholder{height:80px;background:#eee5da;border-radius:8px;display:grid;place-items:center;font-size:28px;color:#9e856c}
-#kv2 .record{border-bottom:1px solid #ebe2d7;padding:7px 0;overflow-wrap:anywhere}
-#kv2 .smallbtn{border:1px solid #e1d5c7;background:#fff;border-radius:6px;padding:4px 7px;font-size:11px}
+#kv2 .floating button:hover{background:var(--ui-soft,#f3e9dd)}
+#kv2 .toast{position:absolute;z-index:15;left:50%;bottom:55px;transform:translateX(-50%);background:var(--ui-accent,#514337);color:var(--ui-accent-ink,#fff);border-radius:9px;padding:10px 14px;max-width:90%;text-align:center;pointer-events:none}
+#kv2 .portrait{height:140px;width:100%;background:var(--ui-soft,#eee5da);object-fit:contain;border-radius:8px}
+#kv2 .placeholder{height:80px;background:var(--ui-soft,#eee5da);border-radius:8px;display:grid;place-items:center;font-size:28px;color:var(--ui-muted,#9e856c)}
+#kv2 .record{border-bottom:1px solid var(--ui-line,#ebe2d7);padding:7px 0;overflow-wrap:anywhere}
+#kv2 .smallbtn{border:1px solid var(--ui-line,#e1d5c7);background:#fff;border-radius:6px;padding:4px 7px;font-size:11px}
 #kv2 .swatch{display:flex;align-items:center;gap:5px}
-#kv2 input[type=checkbox]{accent-color:#976f4c}
+#kv2 input[type=checkbox]{accent-color:var(--ui-accent,#976f4c)}
 #kv2 input[type=range]{width:100%}
-#kv2 .notice{padding:8px;border-radius:8px;background:#eee4d9;color:#6b5342;font-size:11px}
+#kv2 .notice{padding:8px;border-radius:8px;background:var(--ui-soft,#eee4d9);color:var(--ui-muted,#6b5342);font-size:11px}
 #kv2 .mini-title{font-weight:700;margin:9px 0 4px}
 #kv2 .controls{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0}
 #kv2 .controls .btn{white-space:normal}
-#kv2 .status{position:absolute;top:10px;right:10px;font-size:11px;background:#fffcf4df;color:#756858;padding:6px 9px;border-radius:7px;pointer-events:none}
+#kv2 .status{position:absolute;top:10px;right:10px;font-size:11px;background:var(--ui-surface,#fffcf4df);color:var(--ui-muted,#756858);padding:6px 9px;border-radius:7px;pointer-events:none}
 @media(min-width:721px){
  #kv2 .side{resize:both;min-width:245px;max-width:90%;height:100%;max-height:100%;bottom:auto}
  #kv2 .side .head{cursor:move;touch-action:none}
@@ -67,24 +67,25 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px sol
 #kv2 .brand{font-size:11px}
 #kv2 .bar{gap:4px;padding:4px}
 #kv2 .btn{padding:6px}
-#kv2 .side{width:100%;height:49%;top:auto;bottom:0;border-right:0;border-top:1px solid #ddd1c2}
+#kv2 .side{width:100%;height:49%;top:auto;bottom:0;border-right:0;border-top:1px solid var(--ui-line,#ddd1c2)}
 #kv2.has-panel .view{left:0;bottom:49%}
 #kv2 .right{width:90%}
 #kv2 .hint{font-size:10px}
 }
-#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
-#kv2 .maps [aria-pressed=true]{background:#503e32;color:white}
+#kv2 .maps{color:var(--ui-base-ink);display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:var(--ui-base,#f6f3ef);white-space:nowrap}
+#kv2 .maps [aria-pressed=true]{background:var(--ui-accent,#503e32);color:var(--ui-accent-ink,white)}
 #kv2 .main{top:99px}#kv2 .maps span{font-size:12px}#map-tabs{display:flex;gap:3px}
+/* @include themes.css */
 </style>
 <header class="bar">
-  <span class="brand">◉ Карта связей 2.4.1</span>
+  <span class="brand">◉ Карта связей 2.4.2</span>
   <button class="btn primary" data-act="new">＋ Человек</button>
   <button class="btn" data-act="link" id="kv2-link-btn">⇄ Связь</button>
   <button class="btn" data-act="label">T</button>
   <button class="btn" data-act="group">◎ Группировка</button>
   <button class="btn" data-act="path">⌕ Путь</button>
   <button class="btn" data-act="filters">☷ Фильтры</button>
-  <button class="btn" aria-label="Оформление" data-act="settings">⚙</button>
+  <button class="btn" aria-label="Оформление" data-act="settings">⚙ Оформление</button>
   <button class="btn" data-act="undo" title="Отменить">↶</button>
   <button class="btn" data-act="redo" title="Вернуть">↷</button>
   <button class="btn" data-act="more">⋯</button>
@@ -202,6 +203,7 @@ let editingBase=null;
 // Writes are ordered. Import changes the in-memory graph only after storage commits.
 let database, vaultKey, vaultSalt, lastWrite=Promise.resolve(), storageRevision=0;
 let dirty=false, pendingSave=0, persistentReady=false;
+/* @include themes.js */
 /* @include workspaces.js */
 function dbRequest(mode,operation){
  return new Promise((resolve,reject)=>{
@@ -679,7 +681,7 @@ function showDirectory(){
 $("closed-maps").addEventListener("change",e=>{const key=e.target.value;e.target.value="";if(key)switchMap(key);});
 function openRight(name){
  pane=name;right.hidden=false;
- const titles={directory:"Поиск людей",settings:"Оформление полотна",filters:"Фильтры и время",group:"Интеллектуальная группировка",path:"Цепочка знакомств",more:"Файлы и инструменты"};
+ const titles={directory:"Поиск людей",settings:"Оформление",filters:"Фильтры и время",group:"Интеллектуальная группировка",path:"Цепочка знакомств",more:"Файлы и инструменты"};
  $("kv2-right-title").textContent=titles[name]||name;renderRight();
 }
 function closeRight(){pane="";right.hidden=true;}
@@ -1105,15 +1107,17 @@ function changeRingSetting(el){
 function renderRight(){
  if(!pane)return;
  const out=$("kv2-right-body"),s=data.settings,f=data.filters;
+ for(const section of out.querySelectorAll("[data-appearance-section]")){
+  const key=section.dataset.appearanceSection;
+  if(section.open)openedAppearanceSections.add(key);else openedAppearanceSections.delete(key);
+ }
  let html="";
  if(pane==="settings"){
-  html+=`<details open><summary>Сохранённые виды</summary><div class="details"><label class="field">Название вида<input id="view-name" maxlength="80" placeholder="Например, Семья"></label><button class="btn" data-act="save-view">Сохранить как…</button> ${data.activeView?'<button class="btn" data-act="update-view">Обновить текущий вид</button>':""}
-  ${data.savedViews.length?`<label class="field">Мои виды<select id="view-list">${data.savedViews.map((v,i)=>opt(i,v.name,"")).join("")}</select></label><button class="btn" data-act="load-view">Открыть вид</button> <button class="btn" data-act="remove-view">Удалить вид</button>`:""}
-  <p class="muted">Вид сохраняет оформление, фильтры, масштаб и расположение людей. Карточки общие для всех видов.</p></div></details>`;
-  html+=`<p class="notice">Каждый элемент фона закреплён в координатах графа.</p>${settingInput("bg","Цвет полотна",s.bg,"color")}`;
+  html+=themeControls()+'<h3>Полотно текущей карты</h3>';
+  html+=`${settingInput("bg","Цвет полотна",s.bg,"color")}`;
   for(const key of ["grid","rings","sectors"]){
-   const v=s[key],name={grid:"Координатная сетка",rings:"Окружности",sectors:"Сектора"}[key];
-   html+=`<details open><summary>${name}</summary><div class="details">${settingToggle(key+".on","Отображать",v.on)}
+   const v=s[key],name={grid:"Координатная сетка",rings:"Окружности",sectors:"Линии секторов"}[key];
+   html+=`<details data-appearance-section="${key}" ${openedAppearanceSections.has(key)?"open":""}><summary>${name}</summary><div class="details">${settingToggle(key+".on","Отображать",v.on)}
      <div class="pair">${settingInput(key+".color","Цвет",v.color,"color")}${settingInput(key+".width","Толщина",v.width,"number",'min=".2" max="10" step=".2"')}</div>
      ${settingInput(key+".alpha","Непрозрачность",v.alpha,"number",'min="0" max="1" step=".05"')}`;
    if(key==="grid")html+=`<div class="pair">${settingInput("grid.dx","Ширина клетки",v.dx,"number",'min="10" max="2000"')}${settingInput("grid.dy","Высота клетки",v.dy,"number",'min="10" max="2000"')}</div>`;
@@ -1121,11 +1125,14 @@ function renderRight(){
    if(key==="sectors"){
     html+=`${settingInput("sectors.count","Количество секторов",v.weights.length,"number",'min="2" max="24"')}${settingInput("sectors.dash","Пунктир",v.dash,"text")}`;
     v.weights.forEach((w,i)=>{
-     html+=`<div class="pair">${settingInput("sectorLabel."+i,"Название "+(i+1),v.labels[i]||"")}${settingInput("sectorWeight."+i,"Доля",w,"number",'min=".1" max="30" step=".1"')}</div>`;
+     html+=`<div class="pair">${settingInput("sectorLabel."+i,"Название "+(i+1),v.labels[i]||"","text")}${settingInput("sectorWeight."+i,"Доля",w,"number",'min=".1" max="30" step=".1"')}</div>`;
     });
    }
    html+="</div></details>";
   }
+  html+=`<details data-appearance-section="views" ${openedAppearanceSections.has("views")?"open":""}><summary>Сохранённые виды</summary><div class="details"><label class="field">Название вида<input id="view-name" maxlength="80" placeholder="Например, Семья"></label><button class="btn" data-act="save-view">Сохранить как…</button> ${data.activeView?'<button class="btn" data-act="update-view">Обновить текущий вид</button>':""}
+  ${data.savedViews.length?`<label class="field">Мои виды<select id="view-list">${data.savedViews.map((v,i)=>opt(i,v.name,"")).join("")}</select></label><button class="btn" data-act="load-view">Открыть вид</button> <button class="btn" data-act="remove-view">Удалить вид</button>`:""}
+  <p class="muted">Вид сохраняет оформление, фильтры, масштаб и расположение людей. Карточки общие для всех видов.</p></div></details>`;
  }else if(pane==="filters"){
   const cats=[...new Set(data.people.map(categoryIndex()))].sort();
   html+=`<label class="field">Поиск имени, города, профессии или тега<input data-filter="search" value="${h(f.search)}" placeholder="Поиск"></label>
@@ -1423,6 +1430,8 @@ root.addEventListener("click",ev=>{
   ev.preventDefault();const [header,bytes]=attachment.href.split(",");
   window.KartaFiles.save(attachment.download,header.slice(5).split(";")[0],bytes,true);return;
  }
+ const preset=ev.target.closest("[data-palette]");
+ if(preset){const {base,accent}=interfacePalettes[Number(preset.dataset.palette)];saveInterfaceTheme({base,accent});return;}
  const tab=ev.target.closest("[data-map]");if(tab){switchMap(tab.dataset.map);return;}
  const btn=ev.target.closest("[data-act]");
  if(btn&&actions[btn.dataset.act]){actions[btn.dataset.act]();return;}
@@ -1480,6 +1489,7 @@ $("kv2-side-body").addEventListener("change",ev=>{
 });
 $("kv2-right-body").addEventListener("change",ev=>{
  const e=ev.target;
+ if(e.dataset.interface){const key=e.dataset.interface;saveInterfaceTheme({[key]:key==="motion"?e.checked:e.value});return;}
  if(e.id==="call-csv"){importCounts(e.files?.[0]);e.value="";return;}
  if(e.dataset.setting)updateSetting(e);
  if(e.dataset.filter)updateFilter(e);

@@ -9,11 +9,19 @@ package = "local.karta.app"
 def adb(*args):
     return subprocess.check_output(["adb", *args], text=True, timeout=40)
 def start():
-    adb("shell","am","start","-W","-n",package+"/local.karta.app.MainActivity")
+    result=adb("shell","am","start","-W","-n",package+"/local.karta.app.MainActivity")
+    if "Error" in result: raise AssertionError(result)
+    time.sleep(2)
 def find(label):
-    for _ in range(12):
-        adb("shell","uiautomator","dump","/sdcard/karta-upgrade.xml")
-        root = ET.fromstring(adb("shell","cat","/sdcard/karta-upgrade.xml"))
+    limit=time.monotonic()+100
+    while time.monotonic()<limit:
+        try:
+            adb("shell","rm","-f","/sdcard/karta-upgrade.xml")
+            adb("shell","uiautomator","dump","/sdcard/karta-upgrade.xml")
+            root = ET.fromstring(adb("shell","cat","/sdcard/karta-upgrade.xml"))
+        except (subprocess.SubprocessError,ET.ParseError):
+            time.sleep(1)
+            continue
         for node in root.iter("node"):
             if any(label in node.get(k,"") for k in ("text","content-desc")):
                 return node

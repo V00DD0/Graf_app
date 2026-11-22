@@ -89,7 +89,7 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px sol
   <button class="btn" data-act="redo" title="Вернуть">↷</button>
   <button class="btn" data-act="more">⋯</button>
 </header>
-<nav class="maps" aria-label="Рабочие карты"><div id="map-tabs"></div><button class="btn" data-act="new-map" aria-label="Создать карту">＋ Карта</button><button class="btn" data-act="rename-map">Переименовать</button><button class="btn" data-act="directory">Найти человека</button><span id="view-state"></span><span id="save-state" role="status"></span><button id="rescue" hidden class="btn" data-act="export">Скачать копию JSON</button></nav>
+<nav class="maps" aria-label="Рабочие карты"><div id="map-tabs"></div><button class="btn" data-act="new-map" aria-label="Создать карту">＋ Карта</button><button class="btn" data-act="rename-map">Переименовать</button><button class="btn" id="close-map" data-act="close-map" aria-label="Закрыть вкладку">×</button><select id="closed-maps" aria-label="Открыть закрытую карту" hidden></select><button class="btn" data-act="directory">Найти человека</button><span id="view-state"></span><span id="save-state" role="status"></span><button id="rescue" hidden class="btn" data-act="export">Скачать копию JSON</button></nav>
 <div class="main" id="kv2-main">
   <div class="view" id="kv2-view">
     <svg id="kv2-svg" class="scene" xmlns="http://www.w3.org/2000/svg" aria-label="Редактор графа людей"></svg>
@@ -205,6 +205,18 @@ let dirty=false, pendingSave=0, persistentReady=false;
 // The original graph keeps the keys used by versions 2.1–2.3.
 let mapId="home", saveError="", switching=false;
 const mapNames=new Map([["home","Основная карта"]]), histories=new Map();
+const hiddenMaps=new Set();
+function rememberTabs(){
+ try{sessionStorage.setItem("karta-tabs",JSON.stringify({active:mapId,hidden:[...hiddenMaps]}));}catch{}
+}
+function restoreTabs(){
+ try{
+  const state=JSON.parse(sessionStorage.getItem("karta-tabs"));
+  for(const key of state?.hidden||[])if(mapNames.has(key))hiddenMaps.add(key);
+  if(mapNames.has(state?.active)){hiddenMaps.delete(state.active);return state.active;}
+ }catch{}
+ hiddenMaps.delete("home");return "home";
+}
 const mapKey=(id,key)=>id==="home"?key:"map/"+id+"/"+key;
 function saveIndicator(){
  const el=$("save-state");if(!el)return;
@@ -212,8 +224,12 @@ function saveIndicator(){
  $("rescue").hidden=!saveError;
 }
 function showTabs(){
- $("map-tabs").innerHTML=[...mapNames].map(([key,name])=>
+ $("map-tabs").innerHTML=[...mapNames].filter(([key])=>!hiddenMaps.has(key)).map(([key,name])=>
   `<button class="btn" aria-pressed="${mapId===key}" data-map="${h(key)}">${h(name)}</button>`).join("");
+ $("close-map").disabled=mapNames.size-hiddenMaps.size<2;
+ const closed=$("closed-maps");
+ closed.hidden=hiddenMaps.size===0;
+ closed.innerHTML='<option value="">Открыть закрытую карту…</option>'+[...hiddenMaps].map(key=>`<option value="${h(key)}">${h(mapNames.get(key))}</option>`).join("");
 }
 async function readMap(id){
  const [stored,revision]=await new Promise((resolve,reject)=>{
@@ -245,7 +261,7 @@ function installMap(id,state){
  pointer=null;pinch=null;pointers.clear();clearTimeout(longTimer);
  if(pendingFrame){cancelAnimationFrame(pendingFrame);pendingFrame=0;}
  $("kv2-menu").hidden=true;pendingCalls=null;pickerMap=null;searchReturn=false;
- closeSide();closeRight();$("kv2-side-body").replaceChildren();$("kv2-right-body").replaceChildren();showTabs();saveIndicator();updateViewIndicator();
+ closeSide();closeRight();$("kv2-side-body").replaceChildren();$("kv2-right-body").replaceChildren();hiddenMaps.delete(id);rememberTabs();showTabs();saveIndicator();updateViewIndicator();
 }
 async function switchMap(id,name){
  if(switching||id===mapId||!persistentReady)return;
@@ -262,6 +278,13 @@ async function switchMap(id,name){
   if(vaultKey)histories.delete(mapId);else histories.set(mapId,{rev:storageRevision,undo,redo});
   installMap(id,next);
  }catch(e){notify(e.message);}finally{root.inert=false;switching=false;}
+}
+async function closeMap(){
+ const next=[...mapNames.keys()].find(key=>key!==mapId&&!hiddenMaps.has(key));
+ if(!next)return;
+ const closing=mapId;
+ await switchMap(next);
+ if(mapId===next){hiddenMaps.add(closing);rememberTabs();showTabs();}
 }
 function newMap(){
  const name=prompt("Название новой, пустой карты")?.trim().slice(0,80);
@@ -373,7 +396,7 @@ async function loadStore(){
    req.onupgradeneeded=()=>req.result.createObjectStore("graphs");
    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
   });
-  await loadTabNames();installMap("home",await readMap("home"));
+  await loadTabNames();const active=restoreTabs();installMap(active,await readMap(active));
   persistentReady=true;root.inert=false;draw();
  }catch(e){
   const lock=document.createElement("section");
@@ -719,6 +742,7 @@ function showDirectory(){
  }
  input.oninput=list;input.onkeydown=e=>{if(e.key==="Enter")out.querySelector("button")?.click();};list();input.focus();
 }
+$("closed-maps").addEventListener("change",e=>{const key=e.target.value;e.target.value="";if(key)switchMap(key);});
 function openRight(name){
  pane=name;right.hidden=false;
  const titles={directory:"Поиск людей",settings:"Оформление полотна",filters:"Фильтры и время",group:"Интеллектуальная группировка",path:"Цепочка знакомств",more:"Файлы и инструменты"};
@@ -1321,7 +1345,7 @@ function renderRight(){
  }else if(pane==="group"){
   html+=`<p class="notice">Автогруппировка не меняет семейные связи или свойства людей. Сначала показывается предпросмотр.</p>
     <label class="field">Разделение по секторам<select data-group="sectorBy">${selectHtml([["category","Категория знакомства"],["city","Город проживания"],["job","Профессия"],["tag","Первый тег человека"]],data.group.sectorBy)}</select></label>
-    <label class="field">Размещение по окружностям<select data-group="ringBy">${selectHtml([["hops","Число связей от центрального человека"],["importance","Важность (1–5)"],["contact","Время с последнего общения"],["calls","Частота разговоров за 90 дней"],["none","Одна окружность"]],data.group.ringBy)}</select></label>
+    <label class="field">Размещение по окружностям<select data-group="ringBy">${selectHtml([["hops","Число связей от центрального человека"],["importance","Важность (1–5)"],["contact","Время с последнего общения"],["calls","Число разговоров за выбранный период"],["none","Одна окружность"]],data.group.ringBy)}</select></label>
     <label class="field">Центральный человек<select data-filter="focus">${opt("","Первый человек",f.focus)}${data.people.map(n=>opt(n.id,full(n),f.focus)).join("")}</select></label>
     ${ringControls(s.rings)}
     <p class="muted">Для категорий используются заданные категории карточек, для колец — выбранная числовая характеристика. Узлы распределяются пакетно по секторам и кольцам.</p>`;
@@ -1609,10 +1633,22 @@ function refreshCalls(){
  const token=id();pendingCalls={token,rows,graph:data};
  window.KartaFiles.analyzeCalls(token,JSON.stringify(rows));
 }
-window.kartaCallTotals=(token,counts)=>{
+function countSummary(counts,meta){
+ const matched=Object.keys(counts).length, lost=data.people.filter(n=>n.calls&&!Object.hasOwn(counts,n.id)).length;
+ return "Совпавших карточек: "+matched+". Период: "+(meta.start?meta.start+" — "+meta.end:"не указан")+". Прежние итоги будут удалены у "+lost+" карточек.";
+}
+window.kartaCallTotals=(token,counts,start,end)=>{
  const request=pendingCalls;if(!request||request.token!==token)return;
- pendingCalls=null;
- if(counts&&request.graph===data&&!editingBase)applyCounts(request.rows,counts,{source:"device",start:new Date(Date.now()-90*86400000).toISOString().slice(0,10),end:today()});
+ if(!counts||request.graph!==data||editingBase){pendingCalls=null;return;}
+ const meta={source:"device",start:isoDate(start)?start:"",end:isoDate(end)?end:""};
+ const dialog=document.createElement("dialog");
+ dialog.innerHTML='<form method="dialog"><h3>Обновление статистики звонков</h3><p></p><button value="apply" id="accept-totals">Обновить и посмотреть размещение</button> <button value="cancel">Отмена</button></form>';
+ dialog.querySelector("p").textContent=countSummary(counts,meta);
+ dialog.onclose=()=>{
+  pendingCalls=null;dialog.remove();
+  if(dialog.returnValue==="apply"&&request.graph===data&&!editingBase)applyCounts(request.rows,counts,meta);
+ };
+ document.body.append(dialog);dialog.showModal();
 };
 window.kartaPickedPhone=(name,phone,analyze)=>{
  const target=pickerMap;pickerMap=null;if(target&&target!==mapId)return;
@@ -1648,13 +1684,12 @@ async function importCounts(file){
   for(const r of rows)if(byPhone.has(r.phone))counts[r.id]=byPhone.get(r.phone);
   const matched=Object.keys(counts).length;
   if(!matched)throw Error("Нет однозначных совпадений с номерами в карточках");
-  const lost=data.people.filter(n=>n.calls&&!Object.hasOwn(counts,n.id)).length;
-  if(confirm("Совпавших карточек: "+matched+". Период: "+(meta.start?meta.start+" — "+meta.end:"не указан")+". Удалятся прежние итоги у "+lost+" карточек. Применить?"))applyCounts(rows,counts,meta);
+  if(confirm(countSummary(counts,meta)+" Применить?"))applyCounts(rows,counts,meta);
  }catch(e){notify(e.message);}
 }
 
 const actions={
- "new-map":newMap,"rename-map":renameMap,"directory":showDirectory,"update-view":()=>manageView("update"),
+ "close-map":closeMap,"new-map":newMap,"rename-map":renameMap,"directory":showDirectory,"update-view":()=>manageView("update"),
  "pick-phone":()=>pickPhone(false),"pick-calls":()=>pickPhone(true),"refresh-calls":refreshCalls,
  "save-view":()=>manageView("save"),"load-view":()=>manageView("load"),"remove-view":()=>manageView("remove"),
  "protect-local":protectLocal,

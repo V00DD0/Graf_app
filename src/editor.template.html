@@ -89,7 +89,7 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:#42382d;border:1px sol
   <button class="btn" data-act="redo" title="Вернуть">↷</button>
   <button class="btn" data-act="more">⋯</button>
 </header>
-<nav class="maps" aria-label="Рабочие карты"><div id="map-tabs"></div><button class="btn" data-act="new-map" aria-label="Создать карту">＋ Карта</button><button class="btn" data-act="rename-map">Переименовать</button><button class="btn" data-act="directory">Найти человека</button><span id="view-state"></span><span id="save-state" role="status"></span><button id="rescue" hidden class="btn" data-act="export">Скачать копию JSON</button></nav>
+<nav class="maps" aria-label="Рабочие карты"><div id="map-tabs"></div><button class="btn" data-act="new-map" aria-label="Создать карту">＋ Карта</button><button class="btn" data-act="rename-map">Переименовать</button><button class="btn" id="close-map" data-act="close-map" aria-label="Закрыть вкладку">×</button><select id="closed-maps" aria-label="Открыть закрытую карту" hidden></select><button class="btn" data-act="directory">Найти человека</button><span id="view-state"></span><span id="save-state" role="status"></span><button id="rescue" hidden class="btn" data-act="export">Скачать копию JSON</button></nav>
 <div class="main" id="kv2-main">
   <div class="view" id="kv2-view">
     <svg id="kv2-svg" class="scene" xmlns="http://www.w3.org/2000/svg" aria-label="Редактор графа людей"></svg>
@@ -291,7 +291,7 @@ async function loadStore(){
    req.onupgradeneeded=()=>req.result.createObjectStore("graphs");
    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
   });
-  await loadTabNames();installMap("home",await readMap("home"));
+  await loadTabNames();const active=restoreTabs();installMap(active,await readMap(active));
   persistentReady=true;root.inert=false;draw();
  }catch(e){
   const lock=document.createElement("section");
@@ -637,6 +637,7 @@ function showDirectory(){
  }
  input.oninput=list;input.onkeydown=e=>{if(e.key==="Enter")out.querySelector("button")?.click();};list();input.focus();
 }
+$("closed-maps").addEventListener("change",e=>{const key=e.target.value;e.target.value="";if(key)switchMap(key);});
 function openRight(name){
  pane=name;right.hidden=false;
  const titles={directory:"Поиск людей",settings:"Оформление полотна",filters:"Фильтры и время",group:"Интеллектуальная группировка",path:"Цепочка знакомств",more:"Файлы и инструменты"};
@@ -1102,7 +1103,7 @@ function renderRight(){
  }else if(pane==="group"){
   html+=`<p class="notice">Автогруппировка не меняет семейные связи или свойства людей. Сначала показывается предпросмотр.</p>
     <label class="field">Разделение по секторам<select data-group="sectorBy">${selectHtml([["category","Категория знакомства"],["city","Город проживания"],["job","Профессия"],["tag","Первый тег человека"]],data.group.sectorBy)}</select></label>
-    <label class="field">Размещение по окружностям<select data-group="ringBy">${selectHtml([["hops","Число связей от центрального человека"],["importance","Важность (1–5)"],["contact","Время с последнего общения"],["calls","Частота разговоров за 90 дней"],["none","Одна окружность"]],data.group.ringBy)}</select></label>
+    <label class="field">Размещение по окружностям<select data-group="ringBy">${selectHtml([["hops","Число связей от центрального человека"],["importance","Важность (1–5)"],["contact","Время с последнего общения"],["calls","Число разговоров за выбранный период"],["none","Одна окружность"]],data.group.ringBy)}</select></label>
     <label class="field">Центральный человек<select data-filter="focus">${opt("","Первый человек",f.focus)}${data.people.map(n=>opt(n.id,full(n),f.focus)).join("")}</select></label>
     ${ringControls(s.rings)}
     <p class="muted">Для категорий используются заданные категории карточек, для колец — выбранная числовая характеристика. Узлы распределяются пакетно по секторам и кольцам.</p>`;
@@ -1322,7 +1323,7 @@ function showPath(){
 /* @include views.js */
 /* @include calls.js */
 const actions={
- "new-map":newMap,"rename-map":renameMap,"directory":showDirectory,"update-view":()=>manageView("update"),
+ "close-map":closeMap,"new-map":newMap,"rename-map":renameMap,"directory":showDirectory,"update-view":()=>manageView("update"),
  "pick-phone":()=>pickPhone(false),"pick-calls":()=>pickPhone(true),"refresh-calls":refreshCalls,
  "save-view":()=>manageView("save"),"load-view":()=>manageView("load"),"remove-view":()=>manageView("remove"),
  "protect-local":protectLocal,

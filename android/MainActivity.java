@@ -95,8 +95,9 @@ public final class MainActivity extends Activity {
             });
         }
     }
-    private void finishCounts(JSONObject result){
-        if(pendingToken!=null)js("window.kartaCallTotals("+JSONObject.quote(pendingToken)+","+(result==null?"null":result.toString())+")");
+    private void finishCounts(JSONObject result){finishCounts(result,null,null);}
+    private void finishCounts(JSONObject result,String start,String end){
+        if(pendingToken!=null)js("window.kartaCallTotals("+JSONObject.quote(pendingToken)+","+(result==null?"null":result.toString())+","+JSONObject.quote(start)+","+JSONObject.quote(end)+")");
         pendingRows=null;pendingToken=null;
     }
     private void denyCounts(){message("Журнал недоступен. Контакт сохранён, если был добавлен. Итоги можно импортировать в разделе группировки.");finishCounts(null);}
@@ -147,7 +148,10 @@ public final class MainActivity extends Activity {
                         if(id!=null)counts.put(id,counts.getInt(id)+1);
                     }
                 }
-                runOnUiThread(()->finishCounts(counts));
+                java.time.ZoneId zone=java.time.ZoneId.systemDefault();
+                String start=java.time.Instant.ofEpochMilli(now-90L*86400000).atZone(zone).toLocalDate().toString();
+                String end=java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate().toString();
+                runOnUiThread(()->finishCounts(counts,start,end));
             }catch(Exception e){runOnUiThread(()->denyCounts());}
         }).start();
     }

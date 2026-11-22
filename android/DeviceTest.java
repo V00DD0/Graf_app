@@ -61,12 +61,15 @@ public class DeviceTest extends Instrumentation {
                 clickText("Отмена");
                 await("document.querySelector('svg').textContent.includes('QA Contact')");
                 eval("document.querySelector('[data-act=pick-calls]').click()");
+                eval("window.qaDenied=false;const oldTotals=window.kartaCallTotals;window.kartaCallTotals=(...a)=>{window.qaDenied=a[1]===null;oldTotals(...a)}");
                 clickText("QA Contact");clickText("Продолжить");
                 Thread.sleep(800);
-                await("document.querySelector('svg').textContent.includes('QA Contact') && !document.querySelector('[data-act=apply-group]')");
+                await("window.qaDenied && document.querySelector('svg').textContent.includes('QA Contact') && !document.querySelector('[data-act=apply-group]')");
                 out.putString("stream","PASS: picker cancel, consent cancel, permission denied, contact retained");finish(Activity.RESULT_OK,out);return;
             }
             clickText("Продолжить");
+            await("!!document.querySelector('#accept-totals')");
+            eval("document.querySelector('#accept-totals').click()");
             await("!!document.querySelector('[data-act=apply-group]')");
             eval("document.querySelector('[data-act=apply-group]').click()");
             await("!document.querySelector('[data-act=apply-group]')");

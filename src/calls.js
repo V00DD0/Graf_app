@@ -38,10 +38,22 @@ function refreshCalls(){
  const token=id();pendingCalls={token,rows,graph:data};
  window.KartaFiles.analyzeCalls(token,JSON.stringify(rows));
 }
-window.kartaCallTotals=(token,counts)=>{
+function countSummary(counts,meta){
+ const matched=Object.keys(counts).length, lost=data.people.filter(n=>n.calls&&!Object.hasOwn(counts,n.id)).length;
+ return "Совпавших карточек: "+matched+". Период: "+(meta.start?meta.start+" — "+meta.end:"не указан")+". Прежние итоги будут удалены у "+lost+" карточек.";
+}
+window.kartaCallTotals=(token,counts,start,end)=>{
  const request=pendingCalls;if(!request||request.token!==token)return;
- pendingCalls=null;
- if(counts&&request.graph===data&&!editingBase)applyCounts(request.rows,counts,{source:"device",start:new Date(Date.now()-90*86400000).toISOString().slice(0,10),end:today()});
+ if(!counts||request.graph!==data||editingBase){pendingCalls=null;return;}
+ const meta={source:"device",start:isoDate(start)?start:"",end:isoDate(end)?end:""};
+ const dialog=document.createElement("dialog");
+ dialog.innerHTML='<form method="dialog"><h3>Обновление статистики звонков</h3><p></p><button value="apply" id="accept-totals">Обновить и посмотреть размещение</button> <button value="cancel">Отмена</button></form>';
+ dialog.querySelector("p").textContent=countSummary(counts,meta);
+ dialog.onclose=()=>{
+  pendingCalls=null;dialog.remove();
+  if(dialog.returnValue==="apply"&&request.graph===data&&!editingBase)applyCounts(request.rows,counts,meta);
+ };
+ document.body.append(dialog);dialog.showModal();
 };
 window.kartaPickedPhone=(name,phone,analyze)=>{
  const target=pickerMap;pickerMap=null;if(target&&target!==mapId)return;
@@ -77,7 +89,6 @@ async function importCounts(file){
   for(const r of rows)if(byPhone.has(r.phone))counts[r.id]=byPhone.get(r.phone);
   const matched=Object.keys(counts).length;
   if(!matched)throw Error("Нет однозначных совпадений с номерами в карточках");
-  const lost=data.people.filter(n=>n.calls&&!Object.hasOwn(counts,n.id)).length;
-  if(confirm("Совпавших карточек: "+matched+". Период: "+(meta.start?meta.start+" — "+meta.end:"не указан")+". Удалятся прежние итоги у "+lost+" карточек. Применить?"))applyCounts(rows,counts,meta);
+  if(confirm(countSummary(counts,meta)+" Применить?"))applyCounts(rows,counts,meta);
  }catch(e){notify(e.message);}
 }

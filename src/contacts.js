@@ -1,15 +1,15 @@
-function chooseContacts(rows){
+function chooseContacts(rows,title="Добавить из контактов",confirmLabel="Добавить"){
  const dialog=document.createElement("dialog"),selected=new Set(),pageSize=100;
  dialog.className="contacts-picker";
  dialog.setAttribute("aria-labelledby","contacts-title");
  dialog.innerHTML=`<form method="dialog">
-  <h3 id="contacts-title">Добавить из контактов</h3>
+  <h3 id="contacts-title">${h(title)}</h3>
   <label>Поиск по имени или номеру<input type="search" id="contacts-search"></label>
   <div class="contacts-controls"><button type="button" id="contacts-all" autofocus>Выбрать все</button><button type="button" id="contacts-clear">Снять выбор</button></div>
   <div role="status" id="contacts-count"></div>
   <div class="contacts-list" id="contacts-list"></div>
   <div class="contacts-controls" id="contacts-pages"><button type="button" id="contacts-prev">Назад</button><span id="contacts-page"></span><button type="button" id="contacts-next">Вперёд</button></div>
-  <div class="contacts-controls"><button value="add" id="contacts-add">Добавить</button><button value="cancel">Отмена</button></div>
+  <div class="contacts-controls"><button value="add" id="contacts-add">${h(confirmLabel)}</button><button value="cancel">Отмена</button></div>
  </form>`;
  const el=id=>dialog.querySelector("#"+id),list=el("contacts-list");
  let results=rows,page=0;
@@ -82,17 +82,30 @@ function addContacts(rows){
  }
  notify(`Добавлено контактов: ${add.length}${duplicates?`. Пропущено повторов: ${duplicates}`:""}${overLimit?`. Не поместилось на карту: ${overLimit}`:""}`);
 }
+let phonebookCalls=false;
+function pickContacts(withCalls){
+ requestContactPicker(()=>{
+  phonebookCalls=withCalls;
+  window.KartaFiles.pickContacts();
+ });
+}
 window.kartaContactsReady=async error=>{
  if(!pickerMap)return;
- const target=pickerMap,graph=data;
+ const target=pickerMap,graph=data,withCalls=phonebookCalls;
+ let chosen=[];
  try{
   if(error)throw Error(error);
   const response=await fetch("/contacts",{cache:"no-store"});
   if(!response.ok)throw Error("Не удалось прочитать телефонную книгу");
   const contacts=await response.json();
   if(!contacts.length){notify("Телефонная книга пуста");return;}
-  const chosen=await chooseContacts(contacts);
-  if(chosen.length&&target===mapId&&graph===data&&!editingBase)addContacts(chosen);
+  chosen=await chooseContacts(contacts,withCalls?"Добавить и учесть звонки":"Добавить из контактов",withCalls?"Добавить и подсчитать":"Добавить");
  }catch(e){notify(e.message);}
  finally{pickerMap=null;}
+ if(!chosen.length||target!==mapId||graph!==data||editingBase)return;
+ addContacts(chosen);
+ if(withCalls){
+  const numbers=new Set(chosen.map(row=>phoneKey(row.phone)));
+  refreshCalls(phoneRows().filter(row=>numbers.has(row.phone)));
+ }
 };

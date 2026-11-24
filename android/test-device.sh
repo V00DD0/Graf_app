@@ -2,7 +2,7 @@
 set -euo pipefail
 python3 android/test-upgrade.py
 pkg=local.karta.standalone
-adb install --no-incremental Karta-Standalone-2.5.2-test.apk
+adb install --no-incremental Karta-Standalone-2.5.3-test.apk
 adb install --no-incremental -r Karta-device-test.apk
 test_mode(){
  adb shell am instrument -w -e mode "$1" local.karta.qa/local.karta.qa.DeviceTest | tee device-result.txt
@@ -45,3 +45,5 @@ add_contact karta-bulk-b 'QA Bulk B' +12025550142
 add_contact karta-bulk-c 'QA Without Phone'
 adb shell pm grant "$pkg" android.permission.READ_CONTACTS
 test_mode bulk-contacts
+adb shell content insert --uri content://call_log/calls --bind number:s:+12025550141 --bind type:i:1 --bind duration:l:60 --bind date:l:"$((now*1000))" --bind new:i:0
+test_mode bulk-calls

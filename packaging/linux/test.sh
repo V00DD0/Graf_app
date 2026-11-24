@@ -16,20 +16,20 @@ legacy="$XDG_DATA_HOME/karta/Karta-2.1.html"
 mkdir -p "$(dirname "$legacy")"
 printf '%s\n' 'Previous installation' > "$legacy"
 
-if [[ -f dist/Karta-Standalone-2.5.2-all.deb ]]; then
-    [[ $(dpkg-deb -f dist/Karta-Standalone-2.5.2-all.deb Package) == karta-svyazey-standalone ]]
-    dpkg-deb -x dist/Karta-Standalone-2.5.2-all.deb "$tmp/deb"
+if [[ -f dist/Karta-Standalone-2.5.3-all.deb ]]; then
+    [[ $(dpkg-deb -f dist/Karta-Standalone-2.5.3-all.deb Package) == karta-svyazey-standalone ]]
+    dpkg-deb -x dist/Karta-Standalone-2.5.3-all.deb "$tmp/deb"
     [[ $(KARTA_APPDIR="$tmp/deb/usr/share/karta-standalone" "$tmp/deb/usr/bin/karta-standalone") == "$page" ]]
     cmp "$page" Karta-2.1.html
 fi
-if [[ -f dist/Karta-Standalone-2.5.2-noarch.rpm ]]; then
-    [[ $(rpm -qp --qf '%{NAME}' dist/Karta-Standalone-2.5.2-noarch.rpm) == karta-svyazey-standalone ]]
-    (cd "$tmp/rpm" && rpm2cpio "$root/dist/Karta-Standalone-2.5.2-noarch.rpm" | cpio -idm --quiet)
+if [[ -f dist/Karta-Standalone-2.5.3-noarch.rpm ]]; then
+    [[ $(rpm -qp --qf '%{NAME}' dist/Karta-Standalone-2.5.3-noarch.rpm) == karta-svyazey-standalone ]]
+    (cd "$tmp/rpm" && rpm2cpio "$root/dist/Karta-Standalone-2.5.3-noarch.rpm" | cpio -idm --quiet)
     [[ $(KARTA_APPDIR="$tmp/rpm/usr/share/karta-standalone" "$tmp/rpm/usr/bin/karta-standalone") == "$page" ]]
     cmp "$page" Karta-2.1.html
 fi
-if [[ -f dist/Karta-Standalone-2.5.2-x86_64.AppImage ]]; then
-    [[ $(dist/Karta-Standalone-2.5.2-x86_64.AppImage --appimage-extract-and-run) == "$page" ]]
+if [[ -f dist/Karta-Standalone-2.5.3-x86_64.AppImage ]]; then
+    [[ $(dist/Karta-Standalone-2.5.3-x86_64.AppImage --appimage-extract-and-run) == "$page" ]]
     cmp "$page" Karta-2.1.html
 fi
 [[ $(cat "$legacy") == 'Previous installation' ]]

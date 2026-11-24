@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.2 Standalone</title></head><body><div id="kv2" class="kv2">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.3 Standalone</title></head><body><div id="kv2" class="kv2">
 <style>
 html,body{margin:0}dialog,.lock{font:16px system-ui;color:var(--ui-ink,#42382d);border:1px solid var(--ui-line,#cdc1ae);border-radius:12px;padding:22px;background:var(--ui-surface,#fffaf4)}dialog label{display:block;margin:12px 0}dialog::backdrop{background:#40393066}.lock{position:fixed;inset:25% 10% auto;z-index:50}#kv2.kv2{height:100dvh;border:0;border-radius:0}#kv2 .draft{position:sticky;top:0;background:var(--ui-surface,#fffaf4);z-index:2;padding:5px}
 #kv2{font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ui-ink,#453e35);background:#fff;border:1px solid var(--ui-line,#ddd3c5);border-radius:14px;overflow:hidden;position:relative;isolation:isolate;height:760px}
@@ -86,7 +86,7 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:var(--ui-ink,#42382d);
 .contacts-controls[hidden]{display:none}
 </style>
 <header class="bar">
-  <span class="brand">◉ Карта связей 2.5.2 Standalone</span>
+  <span class="brand">◉ Карта связей 2.5.3 Standalone</span>
   <button class="btn primary" data-act="new">＋ Человек</button>
   <button class="btn" data-act="link" id="kv2-link-btn">⇄ Связь</button>
   <button class="btn" data-act="label">T</button>
@@ -1477,8 +1477,8 @@ function showPath(){
 /* @include contacts.js */
 const actions={
  "close-map":closeMap,"new-map":newMap,"rename-map":renameMap,"directory":showDirectory,"update-view":()=>manageView("update"),
- "pick-contacts":()=>requestContactPicker(()=>window.KartaFiles.pickContacts()),
- "pick-phone":()=>requestContactPicker(()=>window.KartaFiles.pickPhone(false)),"pick-calls":()=>requestContactPicker(()=>window.KartaFiles.pickPhone(true)),"refresh-calls":refreshCalls,
+ "pick-contacts":()=>pickContacts(false),"pick-phone":()=>requestContactPicker(()=>window.KartaFiles.pickPhone(false)),
+ "pick-calls":()=>window.KartaFiles.pickContacts?pickContacts(true):requestContactPicker(()=>window.KartaFiles.pickPhone(true)),"refresh-calls":selectCallContacts,
  "save-view":()=>manageView("save"),"load-view":()=>manageView("load"),"remove-view":()=>manageView("remove"),
  "protect-local":protectLocal,
  "edit-profile":()=>profileDraft(true),"save-profile":()=>profileDraft(false,true),"cancel-profile":()=>profileDraft(false),
@@ -1524,7 +1524,7 @@ const actions={
  export:()=>download("karta-svyazey-v2.json",JSON.stringify(data,null,2),"application/json"),
  "encrypted-export":encryptedExport,import:chooseImport,
  html:()=>{
-  download("karta-standalone-2.5.html",`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.2 Standalone</title><style>html,body{margin:0;background:#f9f3eb}#kv2{height:100dvh!important;border:0;border-radius:0}#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
+  download("karta-standalone-2.5.html",`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.3 Standalone</title><style>html,body{margin:0;background:#f9f3eb}#kv2{height:100dvh!important;border:0;border-radius:0}#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
 #kv2 .maps [aria-pressed=true]{background:#503e32;color:white}
 #kv2 .main{top:99px}#kv2 .maps span{font-size:12px}#map-tabs{display:flex;gap:3px}
 </style></head><body>${originalSource}</body></html>`,"text/html;charset=utf-8");

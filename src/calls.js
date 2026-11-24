@@ -14,45 +14,69 @@ function phoneRows(){
  for(const row of rows){if(seen.has(row.phone))duplicates.add(row.phone);seen.add(row.phone);}
  return rows.filter(r=>!duplicates.has(r.phone));
 }
-function applyCounts(rows,totals,meta){
+function applyCounts(rows,totals,meta,replaceAll=false){
  remember("Обновлена статистика звонков");
  const phones=new Map(rows.map(r=>[r.id,r.phone]));
  for(const n of data.people){
-  delete n.calls;
-  if(phones.get(n.id)!==phoneKey(n.phone)||!Object.hasOwn(totals,n.id))continue;
+  if(replaceAll)delete n.calls;
+  const phone=phoneKey(n.phone);
+  if(phones.get(n.id)!==phone||!Object.hasOwn(totals,n.id))continue;
   const count=totals[n.id];
-  if(Number.isSafeInteger(count)&&count>=0)n.calls={phone:phoneKey(n.phone),count,asOf:today(),...meta};
+  if(Number.isSafeInteger(count)&&count>=0)n.calls={phone,count,asOf:today(),...meta};
  }
  data.group.ringBy="calls";finish();openRight("group");groupPreview();
 }
 let pendingCalls=null,pickerMap=null;
-function requestContactPicker(open){
+async function requestContactPicker(open){
  if(pickerMap||pendingCalls)return notify("Выбор или подсчёт уже начат");
  if(editingBase||switching||!persistentReady)return notify("Сначала завершите работу с текущей картой");
- pickerMap=mapId;try{open();}catch(e){pickerMap=null;notify(e.message);}
+ pickerMap=mapId;try{await open();}catch(e){pickerMap=null;notify(e.message);}
 }
 window.kartaPickCancelled=()=>{pickerMap=null;};
-function refreshCalls(){
+function refreshCalls(rows){
  if(pendingCalls)return notify("Подсчёт уже идёт");
- const rows=phoneRows();
  if(!rows.length)return notify("Нужен хотя бы один уникальный номер в карточках");
  const token=id();pendingCalls={token,rows,graph:data};
- window.KartaFiles.analyzeCalls(token,JSON.stringify(rows));
+ // Short request-local IDs keep the native callback small even on a full map.
+ const input=rows.map(({phone},i)=>({id:String(i),phone}));
+ try{window.KartaFiles.analyzeCalls(token,JSON.stringify(input));}
+ catch(e){pendingCalls=null;notify(e.message);}
+}
+function selectCallContacts(){
+ requestContactPicker(async()=>{
+  const graph=data,byId=new Map(data.people.map(n=>[n.id,n]));
+  const rows=phoneRows().map(r=>({...r,name:full(byId.get(r.id))}));
+  if(!rows.length){pickerMap=null;notify("Нужен хотя бы один уникальный номер в карточках");return;}
+  const selected=await chooseContacts(rows,"Синхронизировать журнал вызовов","Подсчитать");
+  pickerMap=null;
+  if(selected.length&&graph===data&&!editingBase)refreshCalls(selected);
+ });
 }
 function countSummary(counts,meta){
- const matched=Object.keys(counts).length, lost=data.people.filter(n=>n.calls&&!Object.hasOwn(counts,n.id)).length;
- return "Совпавших карточек: "+matched+". Период: "+(meta.start?meta.start+" — "+meta.end:"не указан")+". Прежние итоги будут удалены у "+lost+" карточек.";
+ return "Совпавших карточек: "+Object.keys(counts).length+". Период: "+(meta.start?meta.start+" — "+meta.end:"не указан")+".";
 }
 window.kartaCallTotals=(token,counts,start,end)=>{
  const request=pendingCalls;if(!request||request.token!==token)return;
  if(!counts||request.graph!==data||editingBase){pendingCalls=null;return;}
+ const totals=Object.create(null),matched=[];
+ const byId=new Map(data.people.map(n=>[n.id,n]));
+ request.rows.forEach(({id,phone},i)=>{
+  const n=byId.get(id),count=counts[i];
+  if(!n||phoneKey(n.phone)!==phone||!Number.isSafeInteger(count)||count<0)return;
+  totals[id]=count;matched.push([full(n),count]);
+ });
+ if(!matched.length){pendingCalls=null;notify("Нет совпадений с выбранными карточками");return;}
  const meta={source:"device",start:isoDate(start)?start:"",end:isoDate(end)?end:""};
  const dialog=document.createElement("dialog");
- dialog.innerHTML='<form method="dialog"><h3>Обновление статистики звонков</h3><p></p><button value="apply" id="accept-totals">Обновить и посмотреть размещение</button> <button value="cancel">Отмена</button></form>';
- dialog.querySelector("p").textContent=countSummary(counts,meta);
+ dialog.className="contacts-picker";
+ dialog.setAttribute("aria-labelledby","call-totals-title");
+ dialog.innerHTML='<form method="dialog"><h3 id="call-totals-title">Обновление статистики звонков</h3><p></p><div class="contacts-list"><ul></ul></div><div class="contacts-controls"><button value="apply" id="accept-totals">Обновить и посмотреть размещение</button><button value="cancel">Отмена</button></div></form>';
+ dialog.querySelector("p").textContent=countSummary(totals,meta);
+ const list=dialog.querySelector("ul");
+ list.innerHTML=matched.map(([name,count])=>`<li>${h(name)} — ${count}</li>`).join("");
  dialog.onclose=()=>{
   pendingCalls=null;dialog.remove();
-  if(dialog.returnValue==="apply"&&request.graph===data&&!editingBase)applyCounts(request.rows,counts,meta);
+  if(dialog.returnValue==="apply"&&request.graph===data&&!editingBase)applyCounts(request.rows,totals,meta);
  };
  document.body.append(dialog);dialog.showModal();
 };
@@ -66,7 +90,7 @@ window.kartaPickedPhone=(name,phone,analyze)=>{
   if(data.people.length>=10000)return notify("Достигнут лимит людей");
   remember("Добавлен контакт");n=person();n.name=name||phone;n.phone=phone;data.people.push(n);finish();
  }
- if(analyze)refreshCalls();else openSide("person",n.id);
+ if(analyze)refreshCalls(phoneRows().filter(row=>row.id===n.id));else openSide("person",n.id);
 };
 async function importCounts(file){
  if(!file)return;
@@ -90,6 +114,7 @@ async function importCounts(file){
   for(const r of rows)if(byPhone.has(r.phone))counts[r.id]=byPhone.get(r.phone);
   const matched=Object.keys(counts).length;
   if(!matched)throw Error("Нет однозначных совпадений с номерами в карточках");
-  if(confirm(countSummary(counts,meta)+" Применить?"))applyCounts(rows,counts,meta);
+  const lost=data.people.filter(n=>n.calls&&!Object.hasOwn(counts,n.id)).length;
+  if(confirm(countSummary(counts,meta)+" Прежние итоги будут удалены у "+lost+" карточек. Применить?"))applyCounts(rows,counts,meta,true);
  }catch(e){notify(e.message);}
 }

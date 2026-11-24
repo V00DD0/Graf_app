@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.2 Standalone</title></head><body><div id="kv2" class="kv2">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.3 Standalone</title></head><body><div id="kv2" class="kv2">
 <style>
 html,body{margin:0}dialog,.lock{font:16px system-ui;color:var(--ui-ink,#42382d);border:1px solid var(--ui-line,#cdc1ae);border-radius:12px;padding:22px;background:var(--ui-surface,#fffaf4)}dialog label{display:block;margin:12px 0}dialog::backdrop{background:#40393066}.lock{position:fixed;inset:25% 10% auto;z-index:50}#kv2.kv2{height:100dvh;border:0;border-radius:0}#kv2 .draft{position:sticky;top:0;background:var(--ui-surface,#fffaf4);z-index:2;padding:5px}
 #kv2{font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ui-ink,#453e35);background:#fff;border:1px solid var(--ui-line,#ddd3c5);border-radius:14px;overflow:hidden;position:relative;isolation:isolate;height:760px}
@@ -103,7 +103,7 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:var(--ui-ink,#42382d);
 .contacts-controls[hidden]{display:none}
 </style>
 <header class="bar">
-  <span class="brand">◉ Карта связей 2.5.2 Standalone</span>
+  <span class="brand">◉ Карта связей 2.5.3 Standalone</span>
   <button class="btn primary" data-act="new">＋ Человек</button>
   <button class="btn" data-act="link" id="kv2-link-btn">⇄ Связь</button>
   <button class="btn" data-act="label">T</button>
@@ -1874,45 +1874,69 @@ function phoneRows(){
  for(const row of rows){if(seen.has(row.phone))duplicates.add(row.phone);seen.add(row.phone);}
  return rows.filter(r=>!duplicates.has(r.phone));
 }
-function applyCounts(rows,totals,meta){
+function applyCounts(rows,totals,meta,replaceAll=false){
  remember("Обновлена статистика звонков");
  const phones=new Map(rows.map(r=>[r.id,r.phone]));
  for(const n of data.people){
-  delete n.calls;
-  if(phones.get(n.id)!==phoneKey(n.phone)||!Object.hasOwn(totals,n.id))continue;
+  if(replaceAll)delete n.calls;
+  const phone=phoneKey(n.phone);
+  if(phones.get(n.id)!==phone||!Object.hasOwn(totals,n.id))continue;
   const count=totals[n.id];
-  if(Number.isSafeInteger(count)&&count>=0)n.calls={phone:phoneKey(n.phone),count,asOf:today(),...meta};
+  if(Number.isSafeInteger(count)&&count>=0)n.calls={phone,count,asOf:today(),...meta};
  }
  data.group.ringBy="calls";finish();openRight("group");groupPreview();
 }
 let pendingCalls=null,pickerMap=null;
-function requestContactPicker(open){
+async function requestContactPicker(open){
  if(pickerMap||pendingCalls)return notify("Выбор или подсчёт уже начат");
  if(editingBase||switching||!persistentReady)return notify("Сначала завершите работу с текущей картой");
- pickerMap=mapId;try{open();}catch(e){pickerMap=null;notify(e.message);}
+ pickerMap=mapId;try{await open();}catch(e){pickerMap=null;notify(e.message);}
 }
 window.kartaPickCancelled=()=>{pickerMap=null;};
-function refreshCalls(){
+function refreshCalls(rows){
  if(pendingCalls)return notify("Подсчёт уже идёт");
- const rows=phoneRows();
  if(!rows.length)return notify("Нужен хотя бы один уникальный номер в карточках");
  const token=id();pendingCalls={token,rows,graph:data};
- window.KartaFiles.analyzeCalls(token,JSON.stringify(rows));
+ // Short request-local IDs keep the native callback small even on a full map.
+ const input=rows.map(({phone},i)=>({id:String(i),phone}));
+ try{window.KartaFiles.analyzeCalls(token,JSON.stringify(input));}
+ catch(e){pendingCalls=null;notify(e.message);}
+}
+function selectCallContacts(){
+ requestContactPicker(async()=>{
+  const graph=data,byId=new Map(data.people.map(n=>[n.id,n]));
+  const rows=phoneRows().map(r=>({...r,name:full(byId.get(r.id))}));
+  if(!rows.length){pickerMap=null;notify("Нужен хотя бы один уникальный номер в карточках");return;}
+  const selected=await chooseContacts(rows,"Синхронизировать журнал вызовов","Подсчитать");
+  pickerMap=null;
+  if(selected.length&&graph===data&&!editingBase)refreshCalls(selected);
+ });
 }
 function countSummary(counts,meta){
- const matched=Object.keys(counts).length, lost=data.people.filter(n=>n.calls&&!Object.hasOwn(counts,n.id)).length;
- return "Совпавших карточек: "+matched+". Период: "+(meta.start?meta.start+" — "+meta.end:"не указан")+". Прежние итоги будут удалены у "+lost+" карточек.";
+ return "Совпавших карточек: "+Object.keys(counts).length+". Период: "+(meta.start?meta.start+" — "+meta.end:"не указан")+".";
 }
 window.kartaCallTotals=(token,counts,start,end)=>{
  const request=pendingCalls;if(!request||request.token!==token)return;
  if(!counts||request.graph!==data||editingBase){pendingCalls=null;return;}
+ const totals=Object.create(null),matched=[];
+ const byId=new Map(data.people.map(n=>[n.id,n]));
+ request.rows.forEach(({id,phone},i)=>{
+  const n=byId.get(id),count=counts[i];
+  if(!n||phoneKey(n.phone)!==phone||!Number.isSafeInteger(count)||count<0)return;
+  totals[id]=count;matched.push([full(n),count]);
+ });
+ if(!matched.length){pendingCalls=null;notify("Нет совпадений с выбранными карточками");return;}
  const meta={source:"device",start:isoDate(start)?start:"",end:isoDate(end)?end:""};
  const dialog=document.createElement("dialog");
- dialog.innerHTML='<form method="dialog"><h3>Обновление статистики звонков</h3><p></p><button value="apply" id="accept-totals">Обновить и посмотреть размещение</button> <button value="cancel">Отмена</button></form>';
- dialog.querySelector("p").textContent=countSummary(counts,meta);
+ dialog.className="contacts-picker";
+ dialog.setAttribute("aria-labelledby","call-totals-title");
+ dialog.innerHTML='<form method="dialog"><h3 id="call-totals-title">Обновление статистики звонков</h3><p></p><div class="contacts-list"><ul></ul></div><div class="contacts-controls"><button value="apply" id="accept-totals">Обновить и посмотреть размещение</button><button value="cancel">Отмена</button></div></form>';
+ dialog.querySelector("p").textContent=countSummary(totals,meta);
+ const list=dialog.querySelector("ul");
+ list.innerHTML=matched.map(([name,count])=>`<li>${h(name)} — ${count}</li>`).join("");
  dialog.onclose=()=>{
   pendingCalls=null;dialog.remove();
-  if(dialog.returnValue==="apply"&&request.graph===data&&!editingBase)applyCounts(request.rows,counts,meta);
+  if(dialog.returnValue==="apply"&&request.graph===data&&!editingBase)applyCounts(request.rows,totals,meta);
  };
  document.body.append(dialog);dialog.showModal();
 };
@@ -1926,7 +1950,7 @@ window.kartaPickedPhone=(name,phone,analyze)=>{
   if(data.people.length>=10000)return notify("Достигнут лимит людей");
   remember("Добавлен контакт");n=person();n.name=name||phone;n.phone=phone;data.people.push(n);finish();
  }
- if(analyze)refreshCalls();else openSide("person",n.id);
+ if(analyze)refreshCalls(phoneRows().filter(row=>row.id===n.id));else openSide("person",n.id);
 };
 async function importCounts(file){
  if(!file)return;
@@ -1950,22 +1974,23 @@ async function importCounts(file){
   for(const r of rows)if(byPhone.has(r.phone))counts[r.id]=byPhone.get(r.phone);
   const matched=Object.keys(counts).length;
   if(!matched)throw Error("Нет однозначных совпадений с номерами в карточках");
-  if(confirm(countSummary(counts,meta)+" Применить?"))applyCounts(rows,counts,meta);
+  const lost=data.people.filter(n=>n.calls&&!Object.hasOwn(counts,n.id)).length;
+  if(confirm(countSummary(counts,meta)+" Прежние итоги будут удалены у "+lost+" карточек. Применить?"))applyCounts(rows,counts,meta,true);
  }catch(e){notify(e.message);}
 }
 
-function chooseContacts(rows){
+function chooseContacts(rows,title="Добавить из контактов",confirmLabel="Добавить"){
  const dialog=document.createElement("dialog"),selected=new Set(),pageSize=100;
  dialog.className="contacts-picker";
  dialog.setAttribute("aria-labelledby","contacts-title");
  dialog.innerHTML=`<form method="dialog">
-  <h3 id="contacts-title">Добавить из контактов</h3>
+  <h3 id="contacts-title">${h(title)}</h3>
   <label>Поиск по имени или номеру<input type="search" id="contacts-search"></label>
   <div class="contacts-controls"><button type="button" id="contacts-all" autofocus>Выбрать все</button><button type="button" id="contacts-clear">Снять выбор</button></div>
   <div role="status" id="contacts-count"></div>
   <div class="contacts-list" id="contacts-list"></div>
   <div class="contacts-controls" id="contacts-pages"><button type="button" id="contacts-prev">Назад</button><span id="contacts-page"></span><button type="button" id="contacts-next">Вперёд</button></div>
-  <div class="contacts-controls"><button value="add" id="contacts-add">Добавить</button><button value="cancel">Отмена</button></div>
+  <div class="contacts-controls"><button value="add" id="contacts-add">${h(confirmLabel)}</button><button value="cancel">Отмена</button></div>
  </form>`;
  const el=id=>dialog.querySelector("#"+id),list=el("contacts-list");
  let results=rows,page=0;
@@ -2038,25 +2063,38 @@ function addContacts(rows){
  }
  notify(`Добавлено контактов: ${add.length}${duplicates?`. Пропущено повторов: ${duplicates}`:""}${overLimit?`. Не поместилось на карту: ${overLimit}`:""}`);
 }
+let phonebookCalls=false;
+function pickContacts(withCalls){
+ requestContactPicker(()=>{
+  phonebookCalls=withCalls;
+  window.KartaFiles.pickContacts();
+ });
+}
 window.kartaContactsReady=async error=>{
  if(!pickerMap)return;
- const target=pickerMap,graph=data;
+ const target=pickerMap,graph=data,withCalls=phonebookCalls;
+ let chosen=[];
  try{
   if(error)throw Error(error);
   const response=await fetch("/contacts",{cache:"no-store"});
   if(!response.ok)throw Error("Не удалось прочитать телефонную книгу");
   const contacts=await response.json();
   if(!contacts.length){notify("Телефонная книга пуста");return;}
-  const chosen=await chooseContacts(contacts);
-  if(chosen.length&&target===mapId&&graph===data&&!editingBase)addContacts(chosen);
+  chosen=await chooseContacts(contacts,withCalls?"Добавить и учесть звонки":"Добавить из контактов",withCalls?"Добавить и подсчитать":"Добавить");
  }catch(e){notify(e.message);}
  finally{pickerMap=null;}
+ if(!chosen.length||target!==mapId||graph!==data||editingBase)return;
+ addContacts(chosen);
+ if(withCalls){
+  const numbers=new Set(chosen.map(row=>phoneKey(row.phone)));
+  refreshCalls(phoneRows().filter(row=>numbers.has(row.phone)));
+ }
 };
 
 const actions={
  "close-map":closeMap,"new-map":newMap,"rename-map":renameMap,"directory":showDirectory,"update-view":()=>manageView("update"),
- "pick-contacts":()=>requestContactPicker(()=>window.KartaFiles.pickContacts()),
- "pick-phone":()=>requestContactPicker(()=>window.KartaFiles.pickPhone(false)),"pick-calls":()=>requestContactPicker(()=>window.KartaFiles.pickPhone(true)),"refresh-calls":refreshCalls,
+ "pick-contacts":()=>pickContacts(false),"pick-phone":()=>requestContactPicker(()=>window.KartaFiles.pickPhone(false)),
+ "pick-calls":()=>window.KartaFiles.pickContacts?pickContacts(true):requestContactPicker(()=>window.KartaFiles.pickPhone(true)),"refresh-calls":selectCallContacts,
  "save-view":()=>manageView("save"),"load-view":()=>manageView("load"),"remove-view":()=>manageView("remove"),
  "protect-local":protectLocal,
  "edit-profile":()=>profileDraft(true),"save-profile":()=>profileDraft(false,true),"cancel-profile":()=>profileDraft(false),
@@ -2102,7 +2140,7 @@ const actions={
  export:()=>download("karta-svyazey-v2.json",JSON.stringify(data,null,2),"application/json"),
  "encrypted-export":encryptedExport,import:chooseImport,
  html:()=>{
-  download("karta-standalone-2.5.html",`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.2 Standalone</title><style>html,body{margin:0;background:#f9f3eb}#kv2{height:100dvh!important;border:0;border-radius:0}#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
+  download("karta-standalone-2.5.html",`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.3 Standalone</title><style>html,body{margin:0;background:#f9f3eb}#kv2{height:100dvh!important;border:0;border-radius:0}#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
 #kv2 .maps [aria-pressed=true]{background:#503e32;color:white}
 #kv2 .main{top:99px}#kv2 .maps span{font-size:12px}#map-tabs{display:flex;gap:3px}
 </style></head><body>${originalSource}</body></html>`,"text/html;charset=utf-8");

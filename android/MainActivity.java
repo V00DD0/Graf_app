@@ -123,7 +123,7 @@ public final class MainActivity extends Activity {
                 if(pendingToken!=null){js("window.kartaCallTotals("+JSONObject.quote(token)+",null)");message("Уже идёт чтение журнала");return;}
                 pendingToken=token;pendingRows=rows;
                 new AlertDialog.Builder(MainActivity.this).setTitle("Учесть звонки за 90 дней?")
-                    .setMessage("Будут подсчитаны входящие и исходящие вызовы с длительностью больше нуля для номеров на карте. В карточках и экспорте сохраняются только итоги и дата обновления. После расчёта вы увидите предпросмотр.")
+                    .setMessage("Будут подсчитаны входящие и исходящие вызовы с длительностью больше нуля для выбранных номеров. В карточках сохраняются итоги и дата обновления. После расчёта вы увидите предпросмотр.")
                     .setNegativeButton("Отмена",(d,w)->finishCounts(null))
                     .setOnCancelListener(d->finishCounts(null))
                     .setPositiveButton("Продолжить",(d,w)->{

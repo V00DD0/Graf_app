@@ -91,6 +91,37 @@ public class DeviceTest extends Instrumentation {
         eval("document.getElementById('contacts-all').click();document.getElementById('contacts-add').click()");
         await("document.getElementById('kv2-toast').textContent.includes('Добавлено контактов: 1')&&document.querySelector('svg').textContent.includes('QA Without Phone')");
     }
+    private void openCallPicker() throws Exception{
+        eval("document.querySelector('[data-act=group]').click();document.querySelector('[data-act=refresh-calls]').click()");
+        await("document.getElementById('contacts-title')?.textContent==='Синхронизировать журнал вызовов'");
+    }
+    private void selectAllAndCount() throws Exception{
+        eval("document.getElementById('contacts-all').click();document.getElementById('contacts-add').click()");
+    }
+    private void acceptCallTotals() throws Exception{
+        await("!!document.querySelector('#accept-totals')");
+        eval("document.querySelector('#accept-totals').click()");
+        await("!!document.querySelector('[data-act=apply-group]')");
+        eval("document.querySelector('[data-act=apply-group]').click()");
+        await("!document.querySelector('[data-act=apply-group]')");
+    }
+    private void testBulkCalls() throws Exception{
+        openCallPicker();chooseByName("QA Bulk A");chooseByName("QA Bulk B");
+        eval("document.getElementById('contacts-add').click()");
+        clickText("Продолжить");
+        await("!!document.querySelector('#accept-totals')");
+        await("Array.from(document.querySelectorAll('dialog li')).map(li=>li.textContent).sort().join('|')==='QA Bulk A — 1|QA Bulk B — 0'");
+        acceptCallTotals();
+        await("document.getElementById('save-state').textContent==='Сохранено'");
+        eval("{const db=indexedDB.open('karta-standalone-2.5');db.onsuccess=()=>{const q=db.result.transaction('graphs').objectStore('graphs').get('current');q.onsuccess=()=>{window.qaRetained=JSON.parse(q.result).people.find(p=>p.name==='QA Contact')?.calls?.count;db.result.close()}}}");
+        await("window.qaRetained===2");
+        eval("document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-calls]').click()");
+        await("document.getElementById('contacts-title')?.textContent==='Добавить и учесть звонки'");
+        selectAllAndCount();clickText("Продолжить");
+        await("!!document.querySelector('#accept-totals')&&document.querySelectorAll('dialog li').length===3");
+        await("!Array.from(document.querySelectorAll('dialog li')).some(li=>li.textContent.includes('Standalone marker'))");
+        acceptCallTotals();
+    }
     @Override public void onStart(){
         Bundle out=new Bundle();
         try{
@@ -117,29 +148,31 @@ public class DeviceTest extends Instrumentation {
                 testBulkContacts();
                 out.putString("stream","PASS: Android contacts provider, multiselect across searches, cancel, all, duplicates and contact without a number");finish(Activity.RESULT_OK,out);return;
             }
+            if("bulk-calls".equals(mode)){
+                testBulkCalls();
+                out.putString("stream","PASS: selective call-log sync preserved unselected counts, and phonebook select-all synced only matching contacts");finish(Activity.RESULT_OK,out);return;
+            }
             if("denied".equals(mode)){
-                eval("window.qaCancelled=false;const oldCancel=window.kartaPickCancelled;window.kartaPickCancelled=()=>{oldCancel();window.qaCancelled=true};document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-calls]').click()");
+                eval("window.qaCancelled=false;const oldCancel=window.kartaPickCancelled;window.kartaPickCancelled=()=>{oldCancel();window.qaCancelled=true};document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-phone]').click()");
                 waitForPicker();
                 sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
                 await("window.qaCancelled===true");
-                eval("document.querySelector('[data-act=pick-calls]').click()");
-                eval("window.qaCancelTotal=false;const cancelTotals=window.kartaCallTotals;window.kartaCallTotals=(...a)=>{cancelTotals(...a);window.qaCancelTotal=a[1]===null}");
+                eval("document.querySelector('[data-act=pick-phone]').click()");
                 waitForPicker();clickText("QA Contact");
-                clickText("Отмена");await("window.qaCancelTotal===true");
                 await("document.querySelector('svg').textContent.includes('QA Contact')");
+                eval("window.qaCancelTotal=false;const cancelTotals=window.kartaCallTotals;window.kartaCallTotals=(...a)=>{cancelTotals(...a);window.qaCancelTotal=a[1]===null}");
+                openCallPicker();selectAllAndCount();
+                clickText("Отмена");await("window.qaCancelTotal===true");
             }
-            eval("window.qaDenied=false;const oldTotals=window.kartaCallTotals;window.kartaCallTotals=(...a)=>{window.qaDenied=a[1]===null;oldTotals(...a)};document.querySelector('[data-act=group]').click();document.querySelector('[data-act=refresh-calls]').click()");
+            eval("window.qaDenied=false;const oldTotals=window.kartaCallTotals;window.kartaCallTotals=(...a)=>{window.qaDenied=a[1]===null;oldTotals(...a)}");
+            openCallPicker();selectAllAndCount();
             if("denied".equals(mode)){
                 clickText("Продолжить");
                 await("window.qaDenied && document.querySelector('svg').textContent.includes('QA Contact') && !document.querySelector('[data-act=apply-group]')");
                 out.putString("stream","PASS: picker cancel, consent cancel, permission denied, contact retained");finish(Activity.RESULT_OK,out);return;
             }
             clickText("Продолжить");
-            await("!!document.querySelector('#accept-totals')");
-            eval("document.querySelector('#accept-totals').click()");
-            await("!!document.querySelector('[data-act=apply-group]')");
-            eval("document.querySelector('[data-act=apply-group]').click()");
-            await("!document.querySelector('[data-act=apply-group]')");
+            acceptCallTotals();
             String probe="(()=>{const open=indexedDB.open('karta-standalone-2.5');open.onsuccess=()=>{const db=open.result;const q=db.transaction('graphs').objectStore('graphs').get('current');q.onsuccess=()=>{window.qaTotals=JSON.parse(q.result).people.find(p=>p.name==='QA Contact')?.calls?.count;db.close()}};return true})()";
             boolean match=false;
             for(int i=0;i<50&&!match;i++){eval(probe);Thread.sleep(200);match="2".equals(eval("window.qaTotals"));}

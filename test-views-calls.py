@@ -17,11 +17,11 @@ with sync_playwright() as pw:
     expect(p.locator(".node")).to_have_count(5)
     act("settings")
     for section in ["rings","views"]:
-        p.locator(f'[data-appearance-section="{section}"] summary').first.click()
+        p.locator(f'[data-appearance-section="{section}"] > summary').click()
     p.locator('[data-setting="rings.on"]').check()
     p.locator('[data-setting="rings.individual"]').check()
     edit('[data-setting="rings.count"]',4)
-    p.locator('[data-appearance-section="ring-style-0"] summary').click()
+    p.locator('[data-appearance-section="ring-style-0"] > summary').click()
     p.locator('[data-setting="ringStyle.0.dash"]').select_option("dashed")
     edit('[data-setting="ringName.0"]',"Близкий круг")
     expect(p.locator(".ring-name")).to_have_text("Близкий круг")
@@ -41,7 +41,7 @@ with sync_playwright() as pw:
     values=p.locator(".node").evaluate_all("(els)=>Object.fromEntries(els.map(e=>{const m=e.transform.baseVal.getItem(0).matrix;return [e.dataset.person,Math.round(Math.hypot(m.e,m.f))]}))")
     assert values['0']<values['1']==values['2']<values['3']==values['4'],values
     p.wait_for_timeout(500);p.reload()
-    act("settings");p.locator('[data-appearance-section="views"] summary').click();expect(p.locator("#view-list option")).to_have_count(2)
+    act("settings");p.locator('[data-appearance-section="views"] > summary').click();expect(p.locator("#view-list option")).to_have_count(2)
     p.locator("#view-list").select_option(label="Работа");act("load-view")
     expect(p.locator("#view-list")).to_have_value("1")
     expect(p.locator(".ring-name")).to_have_text("Коллеги")

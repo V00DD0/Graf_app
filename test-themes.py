@@ -24,7 +24,7 @@ with sync_playwright() as pw:
     expect(page.locator(".bar")).to_have_css("background-color","rgb(25, 42, 67)")
     expect(canvas).to_have_css("background-color","rgb(255, 255, 255)")
     for key in ("grid","rings","sectors"):
-        page.locator(f'[data-appearance-section="{key}"] summary').click()
+        page.locator(f'[data-appearance-section="{key}"] > summary').click()
         page.locator(f'[data-setting="{key}.on"]').check()
     other=context.new_page()
     other.goto(url)

@@ -16,7 +16,7 @@ with sync_playwright() as driver:
         page.locator(f'[data-act="{name}"]:visible').first.click()
     action("settings")
     for section in ("grid", "sectors", "rings"):
-        page.locator(f'[data-appearance-section="{section}"] summary').first.click()
+        page.locator(f'[data-appearance-section="{section}"] > summary').click()
     for key, value in {"grid.dx": "50", "grid.dy": "50", "grid.color": "#969696", "grid.alpha": "0.5",
                        "sectors.width": "2", "sectors.alpha": "1", "rings.width": "2",
                        "radius.0": "300", "radius.1": "600", "radius.2": "900"}.items():
@@ -28,7 +28,7 @@ with sync_playwright() as driver:
         edit("radius."+str(i), radius)
     circles = page.locator(".guide-ring")
     assert circles.evaluate_all("(els)=>els.map(e=>Number(e.getAttribute('r')))")==[65,145,225,345]
-    page.locator('[data-appearance-section="ring-style-1"] summary').click()
+    page.locator('[data-appearance-section="ring-style-1"] > summary').click()
     setting("ringStyle.1.dash").select_option("dashed")
     setting("ringStyle.1.color").fill("#336699")
     edit("ringStyle.1.width", 4)
@@ -47,11 +47,11 @@ with sync_playwright() as driver:
     page.wait_for_timeout(400)
     page.reload()
     action("settings")
-    page.locator('[data-appearance-section="rings"] summary').first.click()
+    page.locator('[data-appearance-section="rings"] > summary').click()
     expect(setting("radius.3")).to_have_value("345")
     expect(circles.nth(1)).to_have_attribute("stroke-width", "4")
     expect(circles.nth(1)).to_have_attribute("stroke-opacity", "0")
-    page.locator('[data-appearance-section="ring-style-1"] summary').click()
+    page.locator('[data-appearance-section="ring-style-1"] > summary').click()
     setting("ringStyle.1.dash").select_option("solid")
     assert circles.nth(1).get_attribute("stroke-dasharray") is None
     setting("rings.individual").uncheck()

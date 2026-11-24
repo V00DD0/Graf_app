@@ -1,3 +1,15 @@
+function ringLine(rings,index){
+ return {color:rings.color,width:rings.width,alpha:rings.alpha,dash:rings.dash,...rings.styles[index]};
+}
+function validateRingStyle(raw,rings){
+ if(!raw||typeof raw!=="object")return null;
+ const style={};
+ if(typeof raw.color==="string")style.color=validColor(raw.color,rings.color);
+ if(Number.isFinite(raw.width))style.width=clamp(raw.width,rings.width,.2,10);
+ if(Number.isFinite(raw.alpha))style.alpha=clamp(raw.alpha,rings.alpha,0,1);
+ if(typeof raw.dash==="string")style.dash=raw.dash.replace(/[^0-9, .]/g,"").slice(0,30);
+ return style;
+}
 function validatePresentation(raw,ids){
  const s=initial();
  if(raw.settings&&typeof raw.settings==="object"){
@@ -8,13 +20,15 @@ function validatePresentation(raw,ids){
    const base=s.settings[key];
    base.on=!!value.on;base.color=validColor(value.color,base.color);
    base.width=clamp(value.width,base.width,.2,10);base.alpha=clamp(value.alpha,base.alpha,0,1);
-   if(key==="grid"){base.dx=clamp(value.dx,100,10,2000);base.dy=clamp(value.dy,100,10,2000);}
+   if(key==="grid"){base.dx=clamp(value.dx,base.dx,10,2000);base.dy=clamp(value.dy,base.dy,10,2000);}
    else if(key==="rings"){
     if(value.radii!==undefined&&(!Array.isArray(value.radii)||value.radii.length>128||value.radii.some((r,i)=>!Number.isFinite(r)||r<1||r>100000||(i&&r<=value.radii[i-1]))))throw Error("Некорректный список радиусов окружностей");
-    base.radii=value.radii??[];base.names=(Array.isArray(value.names)?value.names:[]).slice(0,128).map(x=>fmt(x).slice(0,80));base.showNames=value.showNames!==false;base.labelColor=validColor(value.labelColor,"#6b503c");base.labelSize=clamp(value.labelSize,14,8,40);
+    base.radii=value.radii??base.radii;base.names=(Array.isArray(value.names)?value.names:[]).slice(0,128).map(x=>fmt(x).slice(0,80));base.showNames=value.showNames!==false;base.labelColor=validColor(value.labelColor,"#6b503c");base.labelSize=clamp(value.labelSize,14,8,40);
     base.individual=value.individual===true;
     if(base.individual&&!base.radii.length)throw Error("Не указан радиус окружности");
-    base.step=clamp(value.step,180,50,2000);base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);}
+    base.step=clamp(value.step,base.step,50,2000);base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);
+    if(Array.isArray(value.styles))base.styles=value.styles.slice(0,128).map(style=>validateRingStyle(style,base));
+   }
    else {
     base.weights=(Array.isArray(value.weights)?value.weights:[1,1,1,1,1]).slice(0,24).map(z=>clamp(z,1,.1,30));
     if(base.weights.length<2)base.weights=[1,1];

@@ -2,7 +2,7 @@
 set -euo pipefail
 python3 android/test-upgrade.py
 pkg=local.karta.standalone
-adb install --no-incremental Karta-Standalone-2.5.0-test.apk
+adb install --no-incremental Karta-Standalone-2.5.1-test.apk
 adb install --no-incremental -r Karta-device-test.apk
 test_mode(){
  adb shell am instrument -w -e mode "$1" local.karta.qa/local.karta.qa.DeviceTest | tee device-result.txt

@@ -1,6 +1,6 @@
 ﻿Unicode True
 Name "Карта связей Standalone"
-OutFile "Karta-Standalone-2.5.0-Windows.exe"
+OutFile "Karta-Standalone-2.5.1-Windows.exe"
 InstallDir "$LOCALAPPDATA\KartaStandalone"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
@@ -18,7 +18,7 @@ Section "Карта связей Standalone"
   CreateShortCut "$SMPROGRAMS\Карта связей Standalone.lnk" "$INSTDIR\Karta.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\KartaStandalone" "DisplayName" "Карта связей Standalone"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\KartaStandalone" "DisplayVersion" "2.5.0"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\KartaStandalone" "DisplayVersion" "2.5.1"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\KartaStandalone" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
 SectionEnd
 

@@ -33,6 +33,6 @@ jobs:
           bash android/build-test.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Karta-Standalone-2.5.0-signed-Android
-          path: Karta-Standalone-2.5.0.apk
+          name: Karta-Standalone-2.5.1-signed-Android
+          path: Karta-Standalone-2.5.1.apk
           if-no-files-found: error

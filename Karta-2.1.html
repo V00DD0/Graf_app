@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.0 Standalone</title></head><body><div id="kv2" class="kv2">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.1 Standalone</title></head><body><div id="kv2" class="kv2">
 <style>
 html,body{margin:0}dialog,.lock{font:16px system-ui;color:var(--ui-ink,#42382d);border:1px solid var(--ui-line,#cdc1ae);border-radius:12px;padding:22px;background:var(--ui-surface,#fffaf4)}dialog label{display:block;margin:12px 0}dialog::backdrop{background:#40393066}.lock{position:fixed;inset:25% 10% auto;z-index:50}#kv2.kv2{height:100dvh;border:0;border-radius:0}#kv2 .draft{position:sticky;top:0;background:var(--ui-surface,#fffaf4);z-index:2;padding:5px}
 #kv2{font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ui-ink,#453e35);background:#fff;border:1px solid var(--ui-line,#ddd3c5);border-radius:14px;overflow:hidden;position:relative;isolation:isolate;height:760px}
@@ -95,7 +95,7 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:var(--ui-ink,#42382d);
 
 </style>
 <header class="bar">
-  <span class="brand">◉ Карта связей 2.5.0 Standalone</span>
+  <span class="brand">◉ Карта связей 2.5.1 Standalone</span>
   <button class="btn primary" data-act="new">＋ Человек</button>
   <button class="btn" data-act="link" id="kv2-link-btn">⇄ Связь</button>
   <button class="btn" data-act="label">T</button>
@@ -167,10 +167,12 @@ const roles=[
  ["Другие",[["relative","Дальний родственник"],["unknown","Неустановленное родство"],["custom","Свой вариант"]]]
 ];
 const defaultSettings=()=>({
- bg:"#ffffff",grid:{on:false,dx:100,dy:100,color:"#c6c2bc",width:1,alpha:.5},
- rings:{on:false,individual:false,radii:[],names:[],showNames:true,labelSize:14,labelColor:"#6b503c",step:180,color:"#b0a99d",width:1,alpha:.65,dash:""},
- sectors:{on:false,weights:[1,1,1,1,1],labels:["Семья","Друзья","Работа","Учёба","Прочие"],color:"#8c8276",width:2,alpha:.7,dash:""}
+ bg:"#ffffff",grid:{on:false,dx:50,dy:50,color:"#969696",width:1,alpha:.5},
+ rings:{on:false,individual:true,radii:[300,600,900],names:[],styles:[],showNames:true,labelSize:14,labelColor:"#6b503c",step:300,color:"#b0a99d",width:2,alpha:.65,dash:""},
+ sectors:{on:false,weights:[1,1,1,1,1],labels:["Семья","Друзья","Работа","Учёба","Прочие"],color:"#8c8276",width:2,alpha:1,dash:""}
 });
+const personAppearance={color:"#f0d7aa",stroke:"#000000",size:40,labelSize:12};
+const linkAppearance={color:"#3c3caf",width:2};
 const initial=()=>({
  version:3,savedViews:[],people:[],links:[],labels:[],overrides:Object.create(null),
  settings:defaultSettings(),
@@ -209,7 +211,7 @@ function get(id){return data.people.find(p=>p.id===id);}
 function getLink(id){return data.links.find(p=>p.id===id);}
 function getLabel(id){return data.labels.find(p=>p.id===id);}
 function person(x=0,y=0){
- return {id:id(),x,y,surname:"",middle:"",birth:"",sex:"u",city:"",job:"",category:"Прочие",tags:[],importance:3,color:"#ac8463",stroke:"#ffffff",size:43,alpha:1,photo:null,marital:"unknown",maritalEvents:[],extra:[],contacts:[],docs:[],savedRelations:{},...Object.fromEntries(fields.flatMap(g=>g[1].map(f=>[f[0],""]))),name:"Новый человек"};
+ return {id:id(),x,y,surname:"",middle:"",birth:"",sex:"u",city:"",job:"",category:"Прочие",tags:[],importance:3,...personAppearance,alpha:1,photo:null,marital:"unknown",maritalEvents:[],extra:[],contacts:[],docs:[],savedRelations:{},...Object.fromEntries(fields.flatMap(g=>g[1].map(f=>[f[0],""]))),name:"Новый человек"};
 }
 function notify(msg){
  const el=$("kv2-toast");el.textContent=msg;el.hidden=false;
@@ -803,7 +805,8 @@ function ringsAndSectors(viewRange,background){
   const radii=ring.individual?ring.radii:Array.from({length:Math.floor(maxR/(step*skip))},(_,i)=>(i+1)*step*skip);
   for(const [idx,r] of radii.entries()){
    if(r>maxR)break;
-   background.push(`<circle class="guide-ring" cx="0" cy="0" r="${r}" fill="none" stroke="${ring.color}" stroke-width="${ring.width}" stroke-opacity="${ring.alpha}" ${ring.dash?`stroke-dasharray="${h(ring.dash)}"`:""}/>`);
+   const line=ring.individual?ringLine(ring,idx):ring;
+   background.push(`<circle class="guide-ring" cx="0" cy="0" r="${r}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-opacity="${line.alpha}" ${line.dash?`stroke-dasharray="${h(line.dash)}"`:""}/>`);
    const name=ring.names[ring.individual?idx:(idx+1)*skip-1];
    if(name&&ring.showNames)background.push(`<text class="ring-name" x="${r*Math.SQRT1_2}" y="${-r*Math.SQRT1_2}" text-anchor="middle" fill="${ring.labelColor}" font-size="${ring.labelSize}" stroke="${data.settings.bg}" stroke-width="4" paint-order="stroke" pointer-events="none">${h(name)}</text>`);
   }
@@ -840,7 +843,7 @@ function draw(){
   const start=position(a),end=position(c),padding=450;
   if(Math.max(start.x,end.x)<bounds.left-padding||Math.min(start.x,end.x)>bounds.right+padding||
      Math.max(start.y,end.y)<bounds.top-padding||Math.min(start.y,end.y)>bounds.bottom+padding)continue;
-  const color=validColor(e.color,"#797f87");
+  const color=validColor(e.color,linkAppearance.color);
   const mark="arr-"+e.id.replace(/[^a-zA-Z0-9_-]/g,"");
   if(e.arrowStart||e.arrowEnd)
    defs.push(`<marker id="${mark}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="${color}"/></marker>`);
@@ -854,18 +857,19 @@ function draw(){
  for(const current of shown){
   const n=atDate(current);
   const point=position(n);
-  const margin=Math.max(n.size,full(n).length*(n.labelSize||13));
+  const labelSize=clamp(n.labelSize??personAppearance.labelSize,personAppearance.labelSize,7,35);
+  const margin=Math.max(n.size,full(n).length*labelSize);
   if(point.x<bounds.left-margin||point.x>bounds.right+margin||point.y<bounds.top-margin||point.y>bounds.bottom+margin)continue;
   const p=point,rad=n.size/2,chosen=selected?.kind==="person"&&selected.id===n.id;
-  const border=chosen?"#e0a64e":validColor(n.stroke,"#ffffff");
+  const border=chosen?"#e0a64e":validColor(n.stroke,personAppearance.stroke);
   const cid="clip-"+n.id.replace(/[^a-zA-Z0-9_-]/g,"");
-  let inner=`<circle r="${rad}" fill="${validColor(n.color)}"/>`;
+  let inner=`<circle r="${rad}" fill="${validColor(n.color,personAppearance.color)}"/>`;
   if(n.photo && /^data:image\/(png|jpeg|webp);base64,/.test(n.photo)){
    defs.push(`<clipPath id="${cid}"><circle r="${rad-1}"/></clipPath>`);
    inner=`<image href="${h(n.photo)}" x="${-rad}" y="${-rad}" width="${2*rad}" height="${2*rad}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${cid})"/>`;
   }
   const showName=k>.27;
-  nodes.push(`<g class="node" data-person="${h(n.id)}" transform="translate(${p.x} ${p.y})" opacity="${clamp(n.alpha,1,.1,1)}"><title>${h(full(n))}${previewInfo?.reasons?" · "+h(previewInfo.reasons.get(n.id)):""}</title>${showName?`<rect x="${-rad}" y="0" width="${2*rad}" height="${rad+18}" fill="transparent"/>`:""}${inner}<circle r="${rad}" stroke="${border}" stroke-width="${chosen?4:2}" fill="none"/>${showName?`<text y="${rad+clamp(n.labelSize,13,7,35)+4}" fill="${validColor(n.labelColor,"#534637")}" font-size="${clamp(n.labelSize,13,7,35)}" text-anchor="middle" stroke="${data.settings.bg}" stroke-width="3" paint-order="stroke" pointer-events="all">${h(full(n))}</text>`:""}</g>`);
+  nodes.push(`<g class="node" data-person="${h(n.id)}" transform="translate(${p.x} ${p.y})" opacity="${clamp(n.alpha,1,.1,1)}"><title>${h(full(n))}${previewInfo?.reasons?" · "+h(previewInfo.reasons.get(n.id)):""}</title>${showName?`<rect x="${-rad}" y="0" width="${2*rad}" height="${rad+18}" fill="transparent"/>`:""}${inner}<circle r="${rad}" stroke="${border}" stroke-width="${chosen?4:2}" fill="none"/>${showName?`<text y="${rad+labelSize+4}" fill="${validColor(n.labelColor,"#534637")}" font-size="${labelSize}" text-anchor="middle" stroke="${data.settings.bg}" stroke-width="3" paint-order="stroke" pointer-events="all">${h(full(n))}</text>`:""}</g>`);
  }
  for(const t of data.labels){
   labels.push(`<g class="lab" data-label="${h(t.id)}" transform="translate(${t.x} ${t.y})"><text fill="${validColor(t.color)}" opacity="${t.alpha}" font-size="${t.size}" font-weight="${t.bold?700:400}" font-style="${t.italic?"italic":"normal"}" stroke="${data.settings.bg}" stroke-width="3" paint-order="stroke" text-anchor="middle">${h(t.text)}</text></g>`);
@@ -964,7 +968,7 @@ function renderSide(){
   html+=`<label><input type="checkbox" data-person-field="pinned" ${n.pinned?"checked":""}> Закрепить при группировке</label>`;
   html+=n.photo?`<img class="portrait" src="${h(n.photo)}" alt="Фото">`:`<div class="placeholder">◉</div>`;
   html+=`<div class="controls"><button class="btn" data-act="photo">📷 Фото</button><button class="btn" data-act="photo-remove">Убрать</button></div>`;
-  html+=`<div class="pair">${input("Цвет подписи","labelColor",n.labelColor||"#534637","color")}${input("Размер подписи","labelSize",n.labelSize||13,"number",'min="7" max="35"')}</div>`;
+  html+=`<div class="pair">${input("Цвет подписи","labelColor",n.labelColor||"#534637","color")}${input("Размер подписи","labelSize",n.labelSize??personAppearance.labelSize,"number",'min="7" max="35"')}</div>`;
   const years=age(n.birth);if(years!==null)html+=`<p class="muted">Возраст: ${years}</p>`;
   html+=`<div class="pair">${input("Диаметр","size",n.size,"number",'min="14" max="180"')}${input("Цвет","color",n.color,"color")}</div>`;
   html+=input("Цвет контура","stroke",n.stroke,"color");
@@ -1096,13 +1100,13 @@ function createFamily(){
  if(duplicate){notify("Такая связь уже существует");return;}
  remember("Добавлена семейная связь");
  data.links.push({id:id(),a,b,kind,partnerStatus,start,end:endDate,customA,customB,
-  label:"",style:"solid",color:"#916c58",width:2,alpha:1,bend:40,arrowStart:false,arrowEnd:false,confidence:"confirmed",source:"",note:""});
+  label:"",style:"solid",...linkAppearance,alpha:1,bend:40,arrowStart:false,arrowEnd:false,confidence:"confirmed",source:"",note:""});
  finish(true);notify("Родство добавлено. Обратные названия вычисляются автоматически");
 }
 function addLink(a,b,kind="friend"){
  if(a===b)return;
  remember("Добавлена связь");
- const e={id:id(),a,b,kind,start:"",end:"",label:"",partnerStatus:"unknown",style:"solid",color:"#71879a",width:2,alpha:1,bend:40,arrowStart:false,arrowEnd:false,confidence:"unverified",source:"",note:""};
+ const e={id:id(),a,b,kind,start:"",end:"",label:"",partnerStatus:"unknown",style:"solid",...linkAppearance,alpha:1,bend:40,arrowStart:false,arrowEnd:false,confidence:"unverified",source:"",note:""};
  data.links.push(e);finish();openSide("link",e.id);
 }
 function processField(el){
@@ -1110,7 +1114,7 @@ function processField(el){
  let target,key,value;
  if(el.dataset.personField){
   target=get(selected.id);key=el.dataset.personField;
-  value=key==="labelSize"?clamp(el.value,13,7,35):key==="labelColor"?validColor(el.value,"#534637"):key==="pinned"?el.checked:key==="tags"?el.value.split(",").map(x=>x.trim()).filter(Boolean).slice(0,30):
+  value=key==="labelSize"?clamp(el.value,personAppearance.labelSize,7,35):key==="labelColor"?validColor(el.value,"#534637"):key==="pinned"?el.checked:key==="tags"?el.value.split(",").map(x=>x.trim()).filter(Boolean).slice(0,30):
     ["size","alpha","importance"].includes(key)?clamp(el.value,target[key],key==="alpha"?.1:1,key==="size"?180:key==="alpha"?1:5):
     key==="color"||key==="stroke"?validColor(el.value):el.value;
  }else if(el.dataset.linkField){
@@ -1173,6 +1177,18 @@ function migrateLegacy(raw){
  return {version:2,people,links,labels:raw.texts||[],view:raw.view,
   settings:{...raw.settings,bg:raw.settings?.background}};
 }
+function ringLine(rings,index){
+ return {color:rings.color,width:rings.width,alpha:rings.alpha,dash:rings.dash,...rings.styles[index]};
+}
+function validateRingStyle(raw,rings){
+ if(!raw||typeof raw!=="object")return null;
+ const style={};
+ if(typeof raw.color==="string")style.color=validColor(raw.color,rings.color);
+ if(Number.isFinite(raw.width))style.width=clamp(raw.width,rings.width,.2,10);
+ if(Number.isFinite(raw.alpha))style.alpha=clamp(raw.alpha,rings.alpha,0,1);
+ if(typeof raw.dash==="string")style.dash=raw.dash.replace(/[^0-9, .]/g,"").slice(0,30);
+ return style;
+}
 function validatePresentation(raw,ids){
  const s=initial();
  if(raw.settings&&typeof raw.settings==="object"){
@@ -1183,13 +1199,15 @@ function validatePresentation(raw,ids){
    const base=s.settings[key];
    base.on=!!value.on;base.color=validColor(value.color,base.color);
    base.width=clamp(value.width,base.width,.2,10);base.alpha=clamp(value.alpha,base.alpha,0,1);
-   if(key==="grid"){base.dx=clamp(value.dx,100,10,2000);base.dy=clamp(value.dy,100,10,2000);}
+   if(key==="grid"){base.dx=clamp(value.dx,base.dx,10,2000);base.dy=clamp(value.dy,base.dy,10,2000);}
    else if(key==="rings"){
     if(value.radii!==undefined&&(!Array.isArray(value.radii)||value.radii.length>128||value.radii.some((r,i)=>!Number.isFinite(r)||r<1||r>100000||(i&&r<=value.radii[i-1]))))throw Error("Некорректный список радиусов окружностей");
-    base.radii=value.radii??[];base.names=(Array.isArray(value.names)?value.names:[]).slice(0,128).map(x=>fmt(x).slice(0,80));base.showNames=value.showNames!==false;base.labelColor=validColor(value.labelColor,"#6b503c");base.labelSize=clamp(value.labelSize,14,8,40);
+    base.radii=value.radii??base.radii;base.names=(Array.isArray(value.names)?value.names:[]).slice(0,128).map(x=>fmt(x).slice(0,80));base.showNames=value.showNames!==false;base.labelColor=validColor(value.labelColor,"#6b503c");base.labelSize=clamp(value.labelSize,14,8,40);
     base.individual=value.individual===true;
     if(base.individual&&!base.radii.length)throw Error("Не указан радиус окружности");
-    base.step=clamp(value.step,180,50,2000);base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);}
+    base.step=clamp(value.step,base.step,50,2000);base.dash=fmt(value.dash).replace(/[^0-9, .]/g,"").slice(0,30);
+    if(Array.isArray(value.styles))base.styles=value.styles.slice(0,128).map(style=>validateRingStyle(style,base));
+   }
    else {
     base.weights=(Array.isArray(value.weights)?value.weights:[1,1,1,1,1]).slice(0,24).map(z=>clamp(z,1,.1,30));
     if(base.weights.length<2)base.weights=[1,1];
@@ -1235,10 +1253,10 @@ function validate(raw){
   const n={...person(),pinned:p.pinned===true};
   n.id=fmt(p.id||id()).slice(0,100);if(ids.has(n.id))continue;ids.add(n.id);
   n.x=clamp(p.x,0,-100000,100000);n.y=clamp(p.y,0,-100000,100000);
-  n.labelColor=validColor(p.labelColor,"#534637");n.labelSize=clamp(p.labelSize,13,7,35);
-  n.size=clamp(p.size,43,12,200);n.alpha=clamp(p.alpha,1,.1,1);
-  n.importance=clamp(p.importance,3,1,5);n.color=validColor(p.color);
-  n.stroke=validColor(p.stroke,"#ffffff");
+  n.labelColor=validColor(p.labelColor,"#534637");n.labelSize=clamp(p.labelSize??n.labelSize,n.labelSize,7,35);
+  n.size=clamp(p.size??n.size,n.size,12,200);n.alpha=clamp(p.alpha,1,.1,1);
+  n.importance=clamp(p.importance,3,1,5);n.color=validColor(p.color,n.color);
+  n.stroke=validColor(p.stroke,n.stroke);
   
   n.photo=typeof p.photo==="string"&&p.photo.length<2100000&&/^data:image\/(png|jpeg|webp);base64,/.test(p.photo)?p.photo:null;
   for(const [,arr] of fields)for(const [key] of arr)n[key]=fmt(p[key]).slice(0,12000);
@@ -1282,7 +1300,7 @@ function validate(raw){
    customA:fmt(l.customA).slice(0,100),customB:fmt(l.customB).slice(0,100),
    note:fmt(l.note).slice(0,8000),source:fmt(l.source).slice(0,500),
    style:["solid","dash","curve","double"].includes(l.style)?l.style:"solid",
-   color:validColor(l.color,"#71879a"),width:clamp(l.width,2,.5,12),
+   color:validColor(l.color,linkAppearance.color),width:clamp(l.width??linkAppearance.width,linkAppearance.width,.5,12),
    alpha:clamp(l.alpha,1,.1,1),bend:clamp(l.bend,40,-400,400),
    arrowStart:!!l.arrowStart,arrowEnd:!!l.arrowEnd,
    confidence:["confirmed","unverified","inferred"].includes(l.confidence)?l.confidence:"unverified"
@@ -1455,7 +1473,15 @@ function ringControls(rings){
  html+='<p class="muted">Радиус отсчитывается от центра карты. Введите значения по возрастанию. При группировке лишние уровни попадут на внешнее кольцо.</p>';
  html+=settingInput("rings.count","Количество окружностей",rings.radii.length,"number",'min="1" max="128" step="1"');
  html+=settingToggle("rings.showNames","Показывать подписи",rings.showNames)+settingInput("rings.labelColor","Цвет текста",rings.labelColor,"color")+settingInput("rings.labelSize","Размер текста",rings.labelSize,"number",'min="8" max="40"');
- return html+rings.radii.map((r,i)=>settingInput("radius."+i,"Радиус "+(i+1),r,"number",'min="1" max="100000" step="any"')+settingInput("ringName."+i,"Подпись кольца "+(i+1),rings.names[i]||"","text",'maxlength="80"')).join("");
+ return html+rings.radii.map((r,i)=>{
+  const section="ring-style-"+i,line=ringLine(rings,i),field="ringStyle."+i+".";
+  return settingInput("radius."+i,"Радиус "+(i+1),r,"number",'min="1" max="100000" step="any"')+
+   settingInput("ringName."+i,"Подпись кольца "+(i+1),rings.names[i]||"","text",'maxlength="80"')+
+   `<details data-appearance-section="${section}" ${openedAppearanceSections.has(section)?"open":""}><summary>Линия окружности ${i+1}</summary><div class="details">
+   <label class="field">Тип линии<select data-setting="${field}dash">${selectHtml([["solid","Сплошная"],["dashed","Пунктирная"]],line.dash?"dashed":"solid")}</select></label>
+   <div class="pair">${settingInput(field+"color","Цвет линии",line.color,"color")}${settingInput(field+"width","Толщина линии",line.width,"number",'min=".2" max="10" step=".2"')}</div>
+   ${settingInput(field+"alpha","Непрозрачность линии",line.alpha,"number",'min="0" max="1" step=".05"')}</div></details>`;
+ }).join("");
 }
 function changeRingSetting(el){
  const rings=data.settings.rings,path=el.dataset.setting;
@@ -1508,9 +1534,10 @@ function renderRight(){
    }
    html+="</div></details>";
   }
-  html+=`<details data-appearance-section="views" ${openedAppearanceSections.has("views")?"open":""}><summary>Сохранённые виды</summary><div class="details"><label class="field">Название вида<input id="view-name" maxlength="80" placeholder="Например, Семья"></label><button class="btn" data-act="save-view">Сохранить как…</button> ${data.activeView?'<button class="btn" data-act="update-view">Обновить текущий вид</button>':""}
-  ${data.savedViews.length?`<label class="field">Мои виды<select id="view-list">${data.savedViews.map((v,i)=>opt(i,v.name,"")).join("")}</select></label><button class="btn" data-act="load-view">Открыть вид</button> <button class="btn" data-act="remove-view">Удалить вид</button>`:""}
-  <p class="muted">Вид сохраняет оформление, фильтры, масштаб и расположение людей. Карточки общие для всех видов.</p></div></details>`;
+  const activeIndex=data.savedViews.findIndex(v=>v.name===data.activeView);
+  html+=`<details data-appearance-section="views" ${openedAppearanceSections.has("views")?"open":""}><summary>Сохранённые темы</summary><div class="details"><label class="field">Название темы<input id="view-name" maxlength="80" placeholder="Например, Семья"></label><button class="btn" data-act="save-view">Сохранить тему</button> ${data.activeView?'<button class="btn" data-act="update-view">Обновить текущую тему</button>':""}
+  ${data.savedViews.length?`<label class="field">Мои темы<select id="view-list">${data.savedViews.map((v,i)=>opt(i,v.name,activeIndex)).join("")}</select></label><button class="btn" data-act="load-view">Открыть вид</button> <button class="btn" data-act="remove-view">Удалить тему</button>`:""}
+  <p class="muted">Тема сохраняет оформление, фильтры, масштаб и расположение людей. Карточки общие для всех тем.</p></div></details>`;
  }else if(pane==="filters"){
   const cats=[...new Set(data.people.map(categoryIndex()))].sort();
   html+=`<label class="field">Поиск имени, города, профессии или тега<input data-filter="search" value="${h(f.search)}" placeholder="Поиск"></label>
@@ -1564,6 +1591,11 @@ function updateSetting(el){
  let val=el.type==="checkbox"?el.checked:el.value;
  remember("Изменены настройки");
  if(path.startsWith("ringName."))data.settings.rings.names[Number(path.split(".")[1])]=fmt(val).trim().slice(0,80);
+ else if(path.startsWith("ringStyle.")){
+  const [,index,key]=path.split("."),rings=data.settings.rings,line=ringLine(rings,index);
+  const value=key==="dash"?(val==="dashed"?"8 5":""):key==="color"?val:el.valueAsNumber;
+  rings.styles[index]={...rings.styles[index],...validateRingStyle({[key]:value},line)};
+ }
  else if(path==="rings.labelColor")data.settings.rings.labelColor=validColor(val,"#6b503c");
  else if(path==="rings.labelSize")data.settings.rings.labelSize=clamp(val,14,8,40);
  else if(path==="timeline")data.filters.timeline=!!val;
@@ -1748,7 +1780,7 @@ function demo(){
   data.people.push(n);
  }
  const link=(a,b,kind,start="",end="")=>data.links.push({id:id(),a:data.people[a].id,b:data.people[b].id,kind,start,end,
-  label:"",partnerStatus:"unknown",style:"solid",color:"#79879a",width:2,alpha:1,bend:40,arrowStart:false,arrowEnd:false,confidence:"confirmed",source:"",note:""});
+  label:"",partnerStatus:"unknown",style:"solid",...linkAppearance,alpha:1,bend:40,arrowStart:false,arrowEnd:false,confidence:"confirmed",source:"",note:""});
  link(0,1,"partner","2015-01-01");
  link(0,2,"parent");link(1,2,"parent");
  link(3,0,"parent");link(4,3,"partner");
@@ -1787,21 +1819,21 @@ function updateViewIndicator(){
  const v=data.savedViews.find(v=>v.name===data.activeView);
  const changed=v&&(["view","group","filters","settings"].some(k=>JSON.stringify(data[k])!==JSON.stringify(v[k]))||
  v.positions.length!==data.people.length||data.people.some((n,i)=>{const p=v.positions[i];return !p||p[0]!==n.id||p[1]!==n.x||p[2]!==n.y;}));
- $("view-state").textContent=v?"Вид «"+v.name+"»"+(changed?" · изменён":""):"";
+ $("view-state").textContent=v?"Тема «"+v.name+"»"+(changed?" · изменена":""):"";
 }
 function manageView(action){
  const index=Number($("view-list")?.value??-1),view=data.savedViews[index];
  if(action==="save"||action==="update"){
   const name=action==="update"?data.activeView:$("view-name").value.trim().slice(0,80);
-  if(!name)return notify("Введите название вида");
+  if(!name)return notify("Введите название темы");
   const i=data.savedViews.findIndex(v=>v.name===name);
-  if(i<0&&data.savedViews.length>=32)return notify("Можно сохранить до 32 видов");
-  if(i>=0&&!confirm("Обновить вид «"+name+"»?"))return;
-  remember("Сохранён вид "+name);
+  if(i<0&&data.savedViews.length>=32)return notify("Можно сохранить до 32 тем");
+  if(i>=0&&!confirm("Обновить тему «"+name+"»?"))return;
+  remember("Сохранена тема "+name);
   data.activeView=name;data.savedViews[i<0?data.savedViews.length:i]={name,settings:clone(data.settings),filters:clone(data.filters),group:clone(data.group),view:clone(data.view),positions:data.people.map(n=>[n.id,n.x,n.y])};
  }else if(view){
-  if(action==="remove"&&!confirm("Удалить вид «"+view.name+"»?"))return;
-  remember("Виды: "+view.name);
+  if(action==="remove"&&!confirm("Удалить тему «"+view.name+"»?"))return;
+  remember((action==="remove"?"Удалена тема ":"Открыта тема ")+view.name);
   if(action==="remove"){data.savedViews.splice(index,1);if(view.name===data.activeView)data.activeView=null;}
   else{
    data.activeView=view.name;for(const key of ["settings","filters","group","view"])data[key]=clone(view[key]);
@@ -1957,7 +1989,7 @@ const actions={
  export:()=>download("karta-svyazey-v2.json",JSON.stringify(data,null,2),"application/json"),
  "encrypted-export":encryptedExport,import:chooseImport,
  html:()=>{
-  download("karta-standalone-2.5.html",`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.0 Standalone</title><style>html,body{margin:0;background:#f9f3eb}#kv2{height:100dvh!important;border:0;border-radius:0}#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
+  download("karta-standalone-2.5.html",`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.1 Standalone</title><style>html,body{margin:0;background:#f9f3eb}#kv2{height:100dvh!important;border:0;border-radius:0}#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
 #kv2 .maps [aria-pressed=true]{background:#503e32;color:white}
 #kv2 .main{top:99px}#kv2 .maps span{font-size:12px}#map-tabs{display:flex;gap:3px}
 </style></head><body>${originalSource}</body></html>`,"text/html;charset=utf-8");

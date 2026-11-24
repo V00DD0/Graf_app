@@ -36,7 +36,13 @@ with sync_playwright() as pw:
    const value=await new Promise(resolve=>{const req=db.transaction('graphs').objectStore('graphs').get('current');req.onsuccess=()=>resolve(req.result)});
    db.close();return JSON.parse(value)
   }""")
- act('more');act('demo');act('close-right');person()
+ act('new');act('close-side')
+ p.locator('#kv2-svg').dblclick(position={'x':430,'y':220});act('close-side')
+ act('link');p.locator('.node circle[fill="#f0d7aa"]').nth(0).click();p.locator('.node circle[fill="#f0d7aa"]').nth(1).click()
+ created=state()
+ assert all((n['size'],n['color'],n['labelSize'],n['stroke'])==(40,'#f0d7aa',12,'#000000') for n in created['people'])
+ assert len(created['links'])==1 and (created['links'][0]['color'],created['links'][0]['width'])==('#3c3caf',2)
+ act('close-side');act('more');act('demo');act('close-right');person()
  assert p.locator('[data-act=edit-profile]').is_visible()
  act('edit-profile');f=p.locator('[data-person-field=name]');f.fill('Черновик');f.press('Tab')
  assert state()['people'][0]['name']=='Анна'

@@ -29,8 +29,8 @@ else
   key="$out/test.p12"
   pass="$out/pass"
   openssl rand -hex 24 > "$out/pass"
-  keytool -genkeypair -keystore "$out/test.p12" -storepass:file "$out/pass" -alias karta -keyalg RSA -keysize 3072 -validity 3650 -dname "CN=Karta 2.4 Test"
-  apk=Karta-2.4-test.apk
+  keytool -genkeypair -keystore "$out/test.p12" -storepass:file "$out/pass" -alias karta -keyalg RSA -keysize 3072 -validity 3650 -dname "CN=Karta Preview"
+  apk=Karta-2.5.0-preview.apk
 fi
 sign_args=(--ks "$key" --ks-pass "file:$pass")
 if [[ -n "${KARTA_KEY_ALIAS:-}" ]]; then
@@ -68,15 +68,23 @@ printf '%s' '<manifest xmlns:android="http://schemas.android.com/apk/res/android
 "$tools/zipalign" -f 4 "$out/raw-test.apk" "$out/aligned-test.apk"
 "$tools/apksigner" sign --ks "$key" --ks-pass "file:$pass" --out Karta-device-test.apk "$out/aligned-test.apk"
 
-# Build the previous editor with the same disposable identity for install -r testing.
-base=bd64b47dd67e07e6284ceb569907b783f00d626c
-git show "$base:Karta-2.1.html" > "$out/assets/index.html"
-git show "$base:android/AndroidManifest.xml" | sed 's/local.karta.preview23/local.karta.preview24/g' > "$out/previous.xml"
-git show "$base:android/MainActivity.java" > "$out/MainActivity.java"
-mkdir "$out/oldclasses" "$out/olddex"
-javac -encoding UTF-8 -source 8 -target 8 -bootclasspath "$jar:$tools/core-lambda-stubs.jar" -d "$out/oldclasses" "$out/MainActivity.java"
-"$tools/d8" --lib "$jar" --min-api 26 --output "$out/olddex" "$out"/oldclasses/local/karta/app/*.class
-"$tools/aapt2" link -I "$jar" --manifest "$out/previous.xml" -A "$out/assets" -o "$out/base.apk"
-(cd "$out/olddex" && zip -q "$out/base.apk" classes.dex)
-"$tools/zipalign" -f 4 "$out/base.apk" "$out/base-aligned.apk"
-"$tools/apksigner" sign --ks "$key" --ks-pass "file:$pass" --out Karta-upgrade-base.apk "$out/base-aligned.apk"
+# Build both historical editors with the preview identity and disposable certificate.
+# This isolates data migration from the identifiers and keys of the published APKs.
+build_upgrade_fixture() {
+  local revision="$1" output="$2" fixture
+  fixture=$(mktemp -d "$out/upgrade.XXXXXX")
+  mkdir "$fixture/classes" "$fixture/dex" "$fixture/assets"
+  git show "$revision:Karta-2.1.html" > "$fixture/assets/index.html"
+  git show "$revision:android/AndroidManifest.xml" |
+    sed 's/package="local\.karta\.preview23"/package="local.karta.preview24"/' > "$fixture/manifest.xml"
+  git show "$revision:android/MainActivity.java" > "$fixture/MainActivity.java"
+  javac -encoding UTF-8 -source 8 -target 8 -bootclasspath "$jar:$tools/core-lambda-stubs.jar" -d "$fixture/classes" "$fixture/MainActivity.java"
+  "$tools/d8" --lib "$jar" --min-api 26 --output "$fixture/dex" "$fixture"/classes/local/karta/app/*.class
+  "$tools/aapt2" link -I "$jar" --manifest "$fixture/manifest.xml" -A "$fixture/assets" -o "$fixture/raw.apk"
+  (cd "$fixture/dex" && zip -q "$fixture/raw.apk" classes.dex)
+  "$tools/zipalign" -f 4 "$fixture/raw.apk" "$fixture/aligned.apk"
+  "$tools/apksigner" sign --ks "$key" --ks-pass "file:$pass" --v4-signing-enabled false --out "$output" "$fixture/aligned.apk"
+}
+
+build_upgrade_fixture bd64b47dd67e07e6284ceb569907b783f00d626c Karta-upgrade-2.3.apk
+build_upgrade_fixture bd71d1bfc8bf42c5767980c48faea13e1d3f66e5 Karta-upgrade-2.4.apk

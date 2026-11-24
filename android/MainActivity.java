@@ -57,6 +57,13 @@ public final class MainActivity extends Activity {
             }
         });
         editor.setWebChromeClient(new WebChromeClient(){
+            @Override public boolean onJsConfirm(WebView v,String url,String text,JsResult result){
+                new AlertDialog.Builder(MainActivity.this).setMessage(text)
+                    .setNegativeButton("Отмена",(dialog,which)->result.cancel())
+                    .setOnCancelListener(dialog->result.cancel())
+                    .setPositiveButton("Подтвердить",(dialog,which)->result.confirm()).show();
+                return true;
+            }
             @Override public boolean onShowFileChooser(WebView v,ValueCallback<Uri[]> callback,FileChooserParams params){
                 if(chooser!=null)chooser.onReceiveValue(null);
                 chooser=callback;

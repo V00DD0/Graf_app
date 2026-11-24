@@ -1086,6 +1086,10 @@ function createFamily(){
  else if(["godfather","godmother"].includes(role)){kind="godparent";a=other.id;b=current.id;}
  else if(role==="godchild")kind="godparent";
  else {customA=role==="custom"?(prompt("Название родства:")||"Иное родство"):label;customB="Родственник / родственница";}
+ if(kind!=="explicit"){
+  if(a===current.id)customA=label.toLocaleLowerCase("ru");
+  else customB=label.toLocaleLowerCase("ru");
+ }
  let endDate=end;
  if(role==="exspouse"&&!endDate)endDate=today();
  if(start&&endDate&&endDate<=start){notify("Дата окончания должна быть позже начала");return;}
@@ -1134,6 +1138,7 @@ function processField(el){
  }
  if(!target||!key)return;
  remember("Изменено поле "+key);
+ if(el.dataset.linkField&&key==="kind"&&target.kind!==value){target.customA="";target.customB="";}
  target[key]=value;
  finish();
  $("kv2-side-title").textContent=selected.kind==="person"?full(get(selected.id)):$("kv2-side-title").textContent;

@@ -62,7 +62,7 @@ public class DeviceTest extends Instrumentation {
         waitForFiles();clickText("karta-svyazey-encrypted.json");
         await("document.querySelector('dialog')?.textContent.includes('Расшифровать резервную копию')===true");
         eval("{const form=document.querySelector('dialog form');form.elements.secret.value='Backup7!';form.querySelector('[value=ok]').click()}");
-        clickText("OK");
+        clickText("Подтвердить");
         await("document.getElementById('kv2-toast').textContent.includes('Загружено')&&document.querySelector('svg').textContent.includes('Upgrade marker')");
     }
     @Override public void onStart(){

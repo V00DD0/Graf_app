@@ -9,6 +9,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.CallLog.Calls;
+import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
@@ -20,11 +21,13 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class MainActivity extends Activity {
     private static final String PAGE="https://appassets.androidplatform.net/index.html";
     private static final String BACKUP_URL="https://appassets.androidplatform.net/backup/";
-    private static final int OPEN=1, SAVE=2, PICK=3, CALL_PERMISSION=4, OPEN_BACKUP=5;
+    private static final String CONTACTS_URL="https://appassets.androidplatform.net/contacts";
+    private static final int OPEN=1, SAVE=2, PICK=3, CALL_PERMISSION=4, OPEN_BACKUP=5, CONTACTS_PERMISSION=6;
     private static final long MAX_BACKUP_BYTES=128L*1024*1024;
     private WebView editor;
     private ValueCallback<Uri[]> chooser;
@@ -34,6 +37,8 @@ public final class MainActivity extends Activity {
     private Uri backupUri;
     private String backupToken;
     private boolean countAfterPick;
+    private boolean readingContacts;
+    private final AtomicReference<byte[]> contactsResult=new AtomicReference<>();
     private String pendingToken, pendingRows;
 
     @Override public void onCreate(Bundle state){
@@ -53,6 +58,11 @@ public final class MainActivity extends Activity {
                 String url=request.getUrl().toString();
                 if(PAGE.equals(url))try{return new WebResourceResponse("text/html","UTF-8",getAssets().open("index.html"));}catch(IOException ignored){}
                 if("GET".equals(request.getMethod())&&url.startsWith(BACKUP_URL))return readBackup(url.substring(BACKUP_URL.length()));
+                if("GET".equals(request.getMethod())&&CONTACTS_URL.equals(url)){
+                    byte[] result=contactsResult.getAndSet(null);
+                    if(result!=null)return new WebResourceResponse("application/json","UTF-8",200,"OK",
+                        Collections.singletonMap("Cache-Control","no-store"),new ByteArrayInputStream(result));
+                }
                 return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));
             }
         });
@@ -96,6 +106,15 @@ public final class MainActivity extends Activity {
                 countAfterPick=withCalls;
                 try{startActivityForResult(new Intent(Intent.ACTION_PICK,Phone.CONTENT_URI),PICK);}
                 catch(RuntimeException e){js("window.kartaPickCancelled()");message("Приложение контактов недоступно");}
+            });
+        }
+        @JavascriptInterface public void pickContacts(){
+            runOnUiThread(()->{
+                if(readingContacts)return;
+                readingContacts=true;
+                if(checkSelfPermission(Manifest.permission.READ_CONTACTS)==PackageManager.PERMISSION_GRANTED)readContacts();
+                else try{requestPermissions(new String[]{Manifest.permission.READ_CONTACTS},CONTACTS_PERMISSION);}
+                catch(SecurityException e){finishContacts(null,"Не удалось запросить доступ к контактам");}
             });
         }
         @JavascriptInterface public void analyzeCalls(String token,String rows){
@@ -198,7 +217,49 @@ public final class MainActivity extends Activity {
         super.onRequestPermissionsResult(request,permissions,results);
         if(request==CALL_PERMISSION&&pendingToken!=null){
             if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)readCounts();else denyCounts();
+        }else if(request==CONTACTS_PERMISSION&&readingContacts){
+            if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)readContacts();
+            else finishContacts(null,"Для массового выбора нужен доступ к контактам. Можно добавить один контакт через системный выбор.");
         }
+    }
+    private void finishContacts(byte[] result,String error){
+        readingContacts=false;
+        if(isDestroyed()||isFinishing())return;
+        contactsResult.set(result);
+        js("window.kartaContactsReady("+(error==null?"null":JSONObject.quote(error))+")");
+    }
+    private void readContacts(){
+        new Thread(()->{
+            try{
+                ContentResolver resolver=getContentResolver();
+                String region=phoneRegion();
+                Map<Long,String> phones=new HashMap<>();
+                // Prefer the contact's default number, then the first valid number by ID.
+                try(Cursor rows=resolver.query(Phone.CONTENT_URI,new String[]{Phone.CONTACT_ID,Phone.NUMBER},null,null,
+                        Phone.IS_SUPER_PRIMARY+" DESC, "+Phone.IS_PRIMARY+" DESC, "+Phone._ID+" ASC")){
+                    if(rows==null)throw new IOException();
+                    while(rows.moveToNext()){
+                        long id=rows.getLong(0);
+                        if(phones.containsKey(id))continue;
+                        String number=canonical(rows.getString(1),region);
+                        if(!number.isEmpty())phones.put(id,number);
+                    }
+                }
+                JSONArray contacts=new JSONArray();
+                try(Cursor rows=resolver.query(Contacts.CONTENT_URI,new String[]{Contacts._ID,Contacts.DISPLAY_NAME_PRIMARY},null,null,
+                        Contacts.DISPLAY_NAME_PRIMARY+" COLLATE LOCALIZED ASC, "+Contacts._ID+" ASC")){
+                    if(rows==null)throw new IOException();
+                    while(rows.moveToNext()){
+                        String name=rows.getString(1),phone=phones.getOrDefault(rows.getLong(0),"");
+                        if(name==null)name="";
+                        if(!name.trim().isEmpty()||!phone.isEmpty())contacts.put(new JSONObject()
+                            .put("name",name.substring(0,Math.min(256,name.length()))).put("phone",phone));
+                    }
+                }
+                byte[] result=contacts.toString().getBytes(StandardCharsets.UTF_8);
+                runOnUiThread(()->finishContacts(result,null));
+            }catch(Exception e){runOnUiThread(()->finishContacts(null,"Не удалось прочитать телефонную книгу"));}
+        }).start();
     }
     private String phoneRegion(){
         TelephonyManager tel=(TelephonyManager)getSystemService(TELEPHONY_SERVICE);

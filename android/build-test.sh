@@ -19,13 +19,13 @@ if [[ -n "${KARTA_KEYSTORE:-}" ]]; then
   : "${KARTA_PASSFILE:?}"
   key="$KARTA_KEYSTORE"
   pass="$KARTA_PASSFILE"
-  apk=Karta-Standalone-2.5.1.apk
+  apk=Karta-Standalone-2.5.2.apk
 else
   key="$out/test.p12"
   pass="$out/pass"
   openssl rand -hex 24 > "$out/pass"
   keytool -genkeypair -keystore "$out/test.p12" -storepass:file "$out/pass" -alias karta -keyalg RSA -keysize 3072 -validity 3650 -dname "CN=Karta Standalone Test"
-  apk=Karta-Standalone-2.5.1-test.apk
+  apk=Karta-Standalone-2.5.2-test.apk
 fi
 sign_args=(--ks "$key" --ks-pass "file:$pass")
 if [[ -n "${KARTA_KEY_ALIAS:-}" ]]; then

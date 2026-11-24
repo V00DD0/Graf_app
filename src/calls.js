@@ -26,9 +26,10 @@ function applyCounts(rows,totals,meta){
  data.group.ringBy="calls";finish();openRight("group");groupPreview();
 }
 let pendingCalls=null,pickerMap=null;
-function pickPhone(calls){
+function requestContactPicker(open){
  if(pickerMap||pendingCalls)return notify("Выбор или подсчёт уже начат");
- pickerMap=mapId;try{window.KartaFiles.pickPhone(calls);}catch(e){pickerMap=null;notify(e.message);}
+ if(editingBase||switching||!persistentReady)return notify("Сначала завершите работу с текущей картой");
+ pickerMap=mapId;try{open();}catch(e){pickerMap=null;notify(e.message);}
 }
 window.kartaPickCancelled=()=>{pickerMap=null;};
 function refreshCalls(){

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-version=2.5.1
+version=2.5.2
 case ${1:-all} in
   all|deb|appimage|rpm) format=${1:-all} ;;
   *) printf 'Usage: %s [all|deb|appimage|rpm]\n' "$0" >&2; exit 2 ;;

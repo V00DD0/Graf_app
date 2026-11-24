@@ -69,6 +69,28 @@ public class DeviceTest extends Instrumentation {
         clickText("Подтвердить");
         await("document.getElementById('kv2-toast').textContent.includes('Загружено')&&document.querySelector('svg').textContent.includes('Standalone marker')");
     }
+    private void openBulkPicker() throws Exception{
+        eval("document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-contacts]').click()");
+        await("!!document.querySelector('.contacts-picker[open]')");
+    }
+    private void chooseByName(String name) throws Exception{
+        eval("{const input=document.getElementById('contacts-search');input.value='"+name+"';input.dispatchEvent(new Event('input'))}");
+        await("document.getElementById('contacts-list').textContent.includes('"+name+"')");
+        eval("document.querySelector('#contacts-list input').click()");
+    }
+    private void testBulkContacts() throws Exception{
+        openBulkPicker();chooseByName("QA Bulk A");chooseByName("QA Bulk B");
+        await("document.getElementById('contacts-count').textContent.startsWith('Выбрано: 2 из')");
+        eval("document.getElementById('contacts-add').click()");
+        await("document.getElementById('kv2-toast').textContent.includes('Добавлено контактов: 2')");
+        await("document.querySelector('svg').textContent.includes('QA Bulk A')&&document.querySelector('svg').textContent.includes('QA Bulk B')");
+        openBulkPicker();
+        eval("document.getElementById('contacts-all').click();document.querySelector('.contacts-picker button[value=cancel]').click()");
+        await("!document.querySelector('.contacts-picker')&&!document.querySelector('svg').textContent.includes('QA Without Phone')");
+        openBulkPicker();
+        eval("document.getElementById('contacts-all').click();document.getElementById('contacts-add').click()");
+        await("document.getElementById('kv2-toast').textContent.includes('Добавлено контактов: 1')&&document.querySelector('svg').textContent.includes('QA Without Phone')");
+    }
     @Override public void onStart(){
         Bundle out=new Bundle();
         try{
@@ -90,6 +112,10 @@ public class DeviceTest extends Instrumentation {
             if("backup".equals(mode)){
                 testBackup();
                 out.putString("stream","PASS: SAF backup write, checksum, cancellation and AES-GCM restore");finish(Activity.RESULT_OK,out);return;
+            }
+            if("bulk-contacts".equals(mode)){
+                testBulkContacts();
+                out.putString("stream","PASS: Android contacts provider, multiselect across searches, cancel, all, duplicates and contact without a number");finish(Activity.RESULT_OK,out);return;
             }
             if("denied".equals(mode)){
                 eval("window.qaCancelled=false;const oldCancel=window.kartaPickCancelled;window.kartaPickCancelled=()=>{oldCancel();window.qaCancelled=true};document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-calls]').click()");

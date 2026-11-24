@@ -39,21 +39,21 @@ jobs:
           $marker = Join-Path $legacy 'Karta-2.1.html'
           Set-Content -Path $marker -Value 'Previous installation'
           $install = Join-Path $env:LOCALAPPDATA 'KartaStandalone'
-          $setup = Start-Process -FilePath packaging/windows/Karta-Standalone-2.5.1-Windows.exe -ArgumentList '/S' -Wait -PassThru
+          $setup = Start-Process -FilePath packaging/windows/Karta-Standalone-2.5.2-Windows.exe -ArgumentList '/S' -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "Installer exit code: $($setup.ExitCode)" }
           if ((Get-Content $marker) -ne 'Previous installation') { throw 'Previous installation was changed' }
           if (!(Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\KartaStandalone')) { throw 'Standalone registration is missing' }
           foreach ($name in 'Karta.exe','Karta-2.1.html') {
             if ((Get-FileHash (Join-Path $install $name)).Hash -ne (Get-FileHash $name).Hash) { throw "Unexpected installed file: $name" }
           }
-          Compress-Archive Karta.exe,Karta-2.1.html Karta-Standalone-2.5.1-Windows-portable.zip
+          Compress-Archive Karta.exe,Karta-2.1.html Karta-Standalone-2.5.2-Windows-portable.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: Karta-Standalone-2.5.1-Windows
+          name: Karta-Standalone-2.5.2-Windows
           if-no-files-found: error
           path: |
-            packaging/windows/Karta-Standalone-2.5.1-Windows.exe
-            Karta-Standalone-2.5.1-Windows-portable.zip
+            packaging/windows/Karta-Standalone-2.5.2-Windows.exe
+            Karta-Standalone-2.5.2-Windows-portable.zip
       - name: Verify the launcher with a different working directory
         shell: pwsh
         run: ./check-launcher.ps1
@@ -78,7 +78,7 @@ jobs:
           bash packaging/linux/test.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Karta-Standalone-2.5.1-Linux
+          name: Karta-Standalone-2.5.2-Linux
           path: dist/
           if-no-files-found: error
       - name: Run browser and load tests

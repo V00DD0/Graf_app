@@ -1,4 +1,5 @@
 from playwright.sync_api import sync_playwright
+from test_support import editor_url, roundtrip_url
 from pathlib import Path
 import json,time,os,shutil,tempfile
 os.chdir(Path(__file__).resolve().parent)
@@ -7,7 +8,7 @@ with sync_playwright() as pw:
  b=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM') or shutil.which('chromium'),args=['--no-sandbox'])
  p=b.new_page(viewport={'width':1280,'height':800},accept_downloads=True)
  errors=[];p.on('pageerror',lambda e:errors.append(str(e)));p.on('dialog',lambda d:d.accept())
- p.goto(Path('Karta-2.1.html').resolve().as_uri());p.wait_for_function('!document.querySelector("#kv2").inert')
+ p.goto(editor_url());p.wait_for_function('!document.querySelector("#kv2").inert')
  def act(k):p.locator('[data-act="'+k+'"]:visible').first.click()
  def person():p.locator('.node text',has_text='Кузнецова Анна').first.click()
  def state():
@@ -41,7 +42,7 @@ with sync_playwright() as pw:
   upload(v);assert state()==before
  with p.expect_download() as down:act('html')
  html_copy=Path(tmp.name)/'roundtrip.html';down.value.save_as(html_copy)
- q=b.new_page();q.goto(html_copy.as_uri());q.locator('[data-act=more]').click()
+ q=b.new_page();q.goto(roundtrip_url(q, html_copy));q.locator('[data-act=more]').click()
  with q.expect_download() as again:q.locator('[data-act=html]').click()
  print('second export',again.value.suggested_filename)
  v={'version':1,'nodes':[{'id':i,'x':x,'y':0,'profile':{'first':i,'profession':'Мастер'},'family':(['b'] if i=='a' else [])} for i,x in [('a',0),('b',100)]],'edges':[{'id':'w','from':'a','to':'b','style':'wave','end':True}],'texts':[]}

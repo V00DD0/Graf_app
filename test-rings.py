@@ -1,11 +1,11 @@
 import os
-from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
+from test_support import editor_url
 
 with sync_playwright() as driver:
     browser = driver.chromium.launch(executable_path=os.environ.get("CHROMIUM"))
     page = browser.new_page(viewport={"width": 1280, "height": 800})
-    page.goto(Path(__file__).with_name("Karta-2.1.html").resolve().as_uri())
+    page.goto(editor_url())
     def setting(name):
         return page.locator(f'[data-setting="{name}"]')
     def edit(name, value):

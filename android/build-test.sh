@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+cd "$(dirname "$0")/.."
 tools="$ANDROID_HOME/build-tools/35.0.0"
 jar="$ANDROID_HOME/platforms/android-35/android.jar"
 if [[ ! -x "$tools/aapt2" || ! -f "$jar" ]]; then
@@ -20,27 +21,42 @@ fi
 (cd "$out/dex" && zip -q "$out/raw.apk" classes.dex)
 "$tools/zipalign" -f 4 "$out/raw.apk" "$out/aligned.apk"
 if [[ -n "${KARTA_KEYSTORE:-}" ]]; then
-  : "${KARTA_PASSFILE:?}" "${KARTA_CERT_SHA256:?}"
+  : "${KARTA_PASSFILE:?}"
   key="$KARTA_KEYSTORE"
   pass="$KARTA_PASSFILE"
+  apk=Karta-2.5.0.apk
 else
   key="$out/test.p12"
   pass="$out/pass"
   openssl rand -hex 24 > "$out/pass"
   keytool -genkeypair -keystore "$out/test.p12" -storepass:file "$out/pass" -alias karta -keyalg RSA -keysize 3072 -validity 3650 -dname "CN=Karta 2.4 Test"
+  apk=Karta-2.4-test.apk
 fi
-"$tools/apksigner" sign --ks "$key" --ks-pass "file:$pass" --out Karta-2.4-test.apk "$out/aligned.apk"
-"$tools/apksigner" verify --verbose Karta-2.4-test.apk
-"$tools/zipalign" -c 4 Karta-2.4-test.apk
-unzip -p Karta-2.4-test.apk assets/index.html | cmp Karta-2.1.html -
-"$tools/aapt" dump permissions Karta-2.4-test.apk
+sign_args=(--ks "$key" --ks-pass "file:$pass")
+if [[ -n "${KARTA_KEY_ALIAS:-}" ]]; then
+  sign_args+=(--ks-key-alias "$KARTA_KEY_ALIAS")
+fi
+if [[ -n "${KARTA_KEY_PASSFILE:-}" ]]; then
+  sign_args+=(--key-pass "file:$KARTA_KEY_PASSFILE")
+fi
+"$tools/apksigner" sign "${sign_args[@]}" --v4-signing-enabled false --out "$out/signed.apk" "$out/aligned.apk"
+"$tools/apksigner" verify --verbose "$out/signed.apk"
+"$tools/zipalign" -c 4 "$out/signed.apk"
+unzip -p "$out/signed.apk" assets/index.html | cmp Karta-2.1.html -
+"$tools/aapt" dump permissions "$out/signed.apk"
 
 if [[ -n "${KARTA_KEYSTORE:-}" ]]; then
-  actual=$("$tools/apksigner" verify --print-certs Karta-2.4-test.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
-  [[ "$actual" == "$KARTA_CERT_SHA256" ]]
-  mv Karta-2.4-test.apk Karta-2.4.apk
+  cert_digest() { "$tools/apksigner" verify --print-certs "$1" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'; }
+  previous=$(cert_digest downloads/Karta-2.4-test.apk)
+  actual=$(cert_digest "$out/signed.apk")
+  if [[ -z "$previous" || "$actual" != "$previous" ]]; then
+    printf 'Android signature differs from the distributed local.karta.app APK. Expected SHA-256: %s\n' "$previous" >&2
+    exit 1
+  fi
+  mv "$out/signed.apk" "$apk"
   exit 0
 fi
+mv "$out/signed.apk" "$apk"
 
 # Separately installed instrumentation lives only on the disposable emulator.
 mkdir -p "$out/testclasses" "$out/testdex"

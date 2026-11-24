@@ -31,7 +31,8 @@ function validatePresentation(raw,ids){
   layers:Object.fromEntries(Object.keys(s.filters.layers).map(k=>[k,f.layers?.[k]!==false]))
  };
  s.group={sectorBy:["category","city","job","tag"].includes(raw.group?.sectorBy)?raw.group.sectorBy:"category",
-  ringBy:["hops","importance","contact","calls","none"].includes(raw.group?.ringBy)?raw.group.ringBy:"hops"};
+  ringBy:["hops","importance","contact","calls","none"].includes(raw.group?.ringBy)?raw.group.ringBy:"hops",
+  visibleOnly:raw.group?.visibleOnly===true};
  s.view={x:clamp(raw.view?.x,0,-100000,100000),y:clamp(raw.view?.y,0,-100000,100000),k:clamp(raw.view?.k,1,.12,4)};
  return {settings:s.settings,filters:s.filters,view:s.view,group:s.group};
 }

@@ -18,14 +18,21 @@ import android.widget.Toast;
 import org.json.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 
 public final class MainActivity extends Activity {
     private static final String PAGE="https://appassets.androidplatform.net/index.html";
-    private static final int OPEN=1, SAVE=2, PICK=3, CALL_PERMISSION=4;
+    private static final String BACKUP_URL="https://appassets.androidplatform.net/backup/";
+    private static final int OPEN=1, SAVE=2, PICK=3, CALL_PERMISSION=4, OPEN_BACKUP=5;
+    private static final long MAX_BACKUP_BYTES=128L*1024*1024;
     private WebView editor;
     private ValueCallback<Uri[]> chooser;
     private byte[] pendingDownload;
+    private boolean verifyDownload, saving, choosingBackup;
+    private final Object backupLock=new Object();
+    private Uri backupUri;
+    private String backupToken;
     private boolean countAfterPick;
     private String pendingToken, pendingRows;
 
@@ -43,7 +50,9 @@ public final class MainActivity extends Activity {
         editor.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest request){return !PAGE.equals(request.getUrl().toString());}
             @Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest request){
-                if(PAGE.equals(request.getUrl().toString()))try{return new WebResourceResponse("text/html","UTF-8",getAssets().open("index.html"));}catch(IOException ignored){}
+                String url=request.getUrl().toString();
+                if(PAGE.equals(url))try{return new WebResourceResponse("text/html","UTF-8",getAssets().open("index.html"));}catch(IOException ignored){}
+                if("GET".equals(request.getMethod())&&url.startsWith(BACKUP_URL))return readBackup(url.substring(BACKUP_URL.length()));
                 return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));
             }
         });
@@ -61,6 +70,20 @@ public final class MainActivity extends Activity {
     private void js(String script){if(!isDestroyed()&&PAGE.equals(editor.getUrl()))editor.evaluateJavascript(script,null);}
     public final class Bridge {
         @JavascriptInterface public String normalizePhone(String number){return canonical(number,phoneRegion());}
+        @JavascriptInterface public void openBackup(){
+            runOnUiThread(()->{
+                if(choosingBackup)return;
+                choosingBackup=true;
+                try{
+                    startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                        .setType("*/*"),OPEN_BACKUP);
+                }catch(RuntimeException e){
+                    choosingBackup=false;
+                    js("window.kartaBackupSelected(null)");
+                    message("Выбор файла недоступен");
+                }
+            });
+        }
         @JavascriptInterface public void pickPhone(boolean withCalls){
             runOnUiThread(()->{
                 countAfterPick=withCalls;
@@ -86,14 +109,77 @@ public final class MainActivity extends Activity {
         }
         @JavascriptInterface public void save(String name,String type,String text,boolean encoded){
             runOnUiThread(()->{
-                if(pendingDownload!=null){message("Завершите сохранение");return;}
+                if(saving){message("Завершите сохранение");return;}
                 try{
                     pendingDownload=encoded?Base64.decode(text,Base64.DEFAULT):text.getBytes(StandardCharsets.UTF_8);
+                    verifyDownload="karta-svyazey-encrypted.json".equals(name);
+                    saving=true;
                     startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
                        .setType(type.split(";")[0]).putExtra(Intent.EXTRA_TITLE,name),SAVE);
-                }catch(RuntimeException e){pendingDownload=null;message("Ошибка сохранения");}
+                }catch(RuntimeException e){pendingDownload=null;saving=false;message("Ошибка сохранения");}
             });
         }
+    }
+    private WebResourceResponse readBackup(String token){
+        Uri uri;
+        synchronized(backupLock){
+            uri=token.equals(backupToken)?backupUri:null;
+            if(uri!=null){backupToken=null;backupUri=null;}
+        }
+        Map<String,String> headers=Collections.singletonMap("Cache-Control","no-store");
+        if(uri!=null)try{
+            InputStream source=getContentResolver().openInputStream(uri);
+            if(source!=null){
+                InputStream limited=new FilterInputStream(source){
+                    private long size;
+                    private int count(int bytes) throws IOException{
+                        if(bytes>0&&(size+=bytes)>MAX_BACKUP_BYTES)throw new IOException("Backup exceeds size limit");
+                        return bytes;
+                    }
+                    @Override public int read() throws IOException{
+                        int value=in.read();
+                        if(value!=-1)count(1);
+                        return value;
+                    }
+                    @Override public int read(byte[] buffer,int offset,int length) throws IOException{
+                        return count(in.read(buffer,offset,length));
+                    }
+                };
+                return new WebResourceResponse("application/json","UTF-8",200,"OK",headers,limited);
+            }
+        }catch(IOException|RuntimeException ignored){}
+        return new WebResourceResponse("text/plain","UTF-8",404,"Not Found",headers,new ByteArrayInputStream(new byte[0]));
+    }
+    private void saveDocument(Uri uri,byte[] bytes,boolean verify){
+        String result;
+        try{
+            try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){
+                if(out==null)throw new IOException();
+                out.write(bytes);
+            }
+            if(verify){
+                MessageDigest digest=MessageDigest.getInstance("SHA-256");
+                byte[] expected=digest.digest(bytes),buffer=new byte[32*1024];
+                long count=0;
+                try(InputStream in=getContentResolver().openInputStream(uri)){
+                    if(in==null)throw new IOException();
+                    for(int length;(length=in.read(buffer))!=-1;){
+                        count+=length;
+                        if(count>bytes.length)throw new IOException();
+                        digest.update(buffer,0,length);
+                    }
+                }
+                if(count!=bytes.length||!MessageDigest.isEqual(expected,digest.digest()))throw new IOException();
+            }
+            result=verify?"Резервная копия сохранена и проверена":"Файл сохранён";
+        }catch(Exception e){result=verify?"Не удалось сохранить или проверить резервную копию":"Ошибка записи";}
+        String text=result;
+        runOnUiThread(()->{
+            saving=false;
+            if(isDestroyed())return;
+            if(verify)js("window.kartaBackupSaved("+JSONObject.quote(text)+")");
+            else message(text);
+        });
     }
     private void finishCounts(JSONObject result){finishCounts(result,null,null);}
     private void finishCounts(JSONObject result,String start,String end){
@@ -169,16 +255,21 @@ public final class MainActivity extends Activity {
             Uri[] files=WebChromeClient.FileChooserParams.parseResult(result,reply);
             if(files!=null)for(Uri f:files)if(!"content".equals(f.getScheme())){files=null;break;}
             chooser.onReceiveValue(files);chooser=null;
+        }else if(request==OPEN_BACKUP){
+            choosingBackup=false;
+            String token=null;
+            synchronized(backupLock){
+                backupUri=uri!=null&&"content".equals(uri.getScheme())?uri:null;
+                backupToken=backupUri==null?null:UUID.randomUUID().toString();
+                token=backupToken;
+            }
+            js("window.kartaBackupSelected("+(token==null?"null":JSONObject.quote(token))+")");
         }else if(request==SAVE){
             byte[] bytes=pendingDownload;pendingDownload=null;
-            if(uri==null)return;
-            if(bytes==null){message("Повторите экспорт");return;}
-            new Thread(()->{
-                try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){
-                    if(out==null)throw new IOException();out.write(bytes);
-                }catch(Exception e){runOnUiThread(()->message("Ошибка записи"));return;}
-                runOnUiThread(()->message("Файл сохранён"));
-            }).start();
+            if(uri==null||!"content".equals(uri.getScheme())){saving=false;return;}
+            if(bytes==null){saving=false;message("Повторите экспорт");return;}
+            boolean verify=verifyDownload;
+            new Thread(()->saveDocument(uri,bytes,verify)).start();
         }
     }
 }

@@ -1,0 +1,6 @@
+__pycache__/
+/dist/
+/*.apk
+/*.idsig
+/device-result.txt
+/packaging/windows/*-Windows.exe

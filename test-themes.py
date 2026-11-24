@@ -1,13 +1,13 @@
 """Exercise installation-wide themes and per-map guides through the editor UI."""
 import os
-from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
+from test_support import editor_url
 
 with sync_playwright() as pw:
     browser = pw.chromium.launch(executable_path=os.environ.get("CHROMIUM"))
     context = browser.new_context(viewport={"width":1280, "height":800})
     page = context.new_page()
-    url = Path(__file__).with_name("Karta-2.1.html").resolve().as_uri()
+    url = editor_url()
     def settings(p):
         p.locator('[data-act="settings"]').click()
     page.goto(url)

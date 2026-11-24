@@ -3,12 +3,13 @@ import json
 import os
 from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
+from test_support import editor_url
 
 with sync_playwright() as pw:
     browser = pw.chromium.launch(executable_path=os.environ.get("CHROMIUM"))
     ctx = browser.new_context(accept_downloads=True, viewport={"width": 1050, "height": 760})
     page = ctx.new_page()
-    url = Path("Karta-2.1.html").resolve().as_uri()
+    url = editor_url()
     page.on("dialog", lambda d: d.accept("Коллеги") if d.type == "prompt" else d.accept())
     def act(name):
         page.locator(f'[data-act="{name}"]:visible').first.click()

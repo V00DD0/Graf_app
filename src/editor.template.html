@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.4.2</title></head><body><div id="kv2" class="kv2">
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей 2.5.0</title></head><body><div id="kv2" class="kv2">
 <style>
 html,body{margin:0}dialog,.lock{font:16px system-ui;color:var(--ui-ink,#42382d);border:1px solid var(--ui-line,#cdc1ae);border-radius:12px;padding:22px;background:var(--ui-surface,#fffaf4)}dialog label{display:block;margin:12px 0}dialog::backdrop{background:#40393066}.lock{position:fixed;inset:25% 10% auto;z-index:50}#kv2.kv2{height:100dvh;border:0;border-radius:0}#kv2 .draft{position:sticky;top:0;background:var(--ui-surface,#fffaf4);z-index:2;padding:5px}
 #kv2{font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ui-ink,#453e35);background:#fff;border:1px solid var(--ui-line,#ddd3c5);border-radius:14px;overflow:hidden;position:relative;isolation:isolate;height:760px}
@@ -78,7 +78,7 @@ html,body{margin:0}dialog,.lock{font:16px system-ui;color:var(--ui-ink,#42382d);
 /* @include themes.css */
 </style>
 <header class="bar">
-  <span class="brand">◉ Карта связей 2.4.2</span>
+  <span class="brand">◉ Карта связей 2.5.0</span>
   <button class="btn primary" data-act="new">＋ Человек</button>
   <button class="btn" data-act="link" id="kv2-link-btn">⇄ Связь</button>
   <button class="btn" data-act="label">T</button>
@@ -138,7 +138,7 @@ const fields=[
  ["Интересы и праздники",[["food","Предпочтения в еде"],["sport","Спорт"],["leisure","Досуг","area"],["culture","Культура"],["colorFav","Любимый цвет"],["hobbies","Увлечения","area"],["holidays","Праздники и важные даты","area"]]],
  ["Личные заметки",[["property","Имущество","area"],["finance","Финансовые заметки без реквизитов","area"],["health","Здоровье (конфиденциально)","area"],["notes","Прочие сведения","area"]]]
 ];
-const statuses=[["unknown","Не указано"],["single","Холост / не замужем"],["married","Женат / замужем"],["cohabiting","Сожительство"],["engaged","Помолвка"],["separated","Разошёлся / разошлась"],["divorced","Разведён / разведена"],["widowed","Вдовец / вдова"]];
+const statuses=[["unknown","Не указано"],["single","Холост / не замужем"],["married","Женат / замужем"],["registered","Зарегистрированное партнёрство"],["cohabiting","Сожительство"],["engaged","Помолвка"],["separated","Разошёлся / разошлась"],["divorcing","В процессе развода"],["divorced","Разведён / разведена"],["widowed","Вдовец / вдова"]];
 const roles=[
  ["Дети и родители",[["son","Сын"],["daughter","Дочь"],["child","Ребёнок"],["father","Отец"],["mother","Мать"],["parent","Родитель"],["adoptedchild","Усыновлённый / приёмный ребёнок"],["adopter","Усыновитель / приёмный родитель"]]],
  ["Братья и сёстры",[["brother","Брат"],["sister","Сестра"],["halfbrother","Единокровный / единоутробный брат"],["halfsister","Единокровная / единоутробная сестра"],["stepbrother","Сводный брат"],["stepsister","Сводная сестра"]]],
@@ -158,7 +158,7 @@ const initial=()=>({
  version:3,savedViews:[],people:[],links:[],labels:[],overrides:Object.create(null),
  settings:defaultSettings(),
  filters:{search:"",category:"all",hops:0,focus:null,date:today(),timeline:false,layers:{family:true,friend:true,work:true,study:true,other:true}},
- group:{sectorBy:"category",ringBy:"hops"},view:{x:0,y:0,k:1},audit:[]
+ group:{sectorBy:"category",ringBy:"hops",visibleOnly:false},view:{x:0,y:0,k:1},audit:[]
 });
 let data=initial(), selected=null, pane="", mode="select", anchor=null, preview=null;
 let previewInfo=null, route=[], undo=[], redo=[], pointer=null, pinch=null;
@@ -383,17 +383,17 @@ function todayActive(l){
  return (!l.start||l.start<=date)&&(!l.end||date<l.end);
 }
 function family(l){return familyKinds.has(l.kind);}
+const linkMoves={
+ parent:["down","up"],adoptive:["adown","aup"],sibling:["sibling","sibling"],partner:["partner","partner"],
+ step:["stepdown","stepup"],guardian:["ward","guardian"],godparent:["gdown","gup"],explicit:["explicit","explicit"],
+ friend:["friend","friend"],work:["work","work"],study:["study","study"],other:["other","other"]
+};
 function adjacency(familyOnly=false){
  const g=new Map();
  const add=(a,b,move,link)=>{if(!g.has(a))g.set(a,[]);g.get(a).push({to:b,move,link});};
  for(const l of data.links){
   if(!todayActive(l)||(familyOnly&&!family(l)))continue;
-  let moves={
-   parent:["down","up"],adoptive:["adown","aup"],sibling:["sibling","sibling"],
-   partner:["partner","partner"],step:["stepdown","stepup"],guardian:["ward","guardian"],
-   godparent:["gdown","gup"],explicit:["explicit","explicit"],
-   friend:["friend","friend"],work:["work","work"],study:["study","study"],other:["other","other"]
-  }[l.kind]||["other","other"];
+  const moves=linkMoves[l.kind]||linkMoves.other;
   add(l.a,l.b,moves[0],l);add(l.b,l.a,moves[1],l);
  }
  return g;
@@ -425,14 +425,14 @@ function hopDistances(rootId,familyOnly=false){
  return dist;
 }
 const genderName=(p,m,f,u)=>p?.sex==="m"?m:p?.sex==="f"?f:u;
-function kinLabel(from,to){
+function kinLabel(from,to,direct=null){
  const key=from+"|"+to,manual=data.overrides[key];
  if(manual)return {label:manual,source:"Вручную"};
- const path=findPath(from,to,true);
+ const path=direct?[{to,move:linkMoves[direct.kind][direct.a===from?0:1],link:direct}]:findPath(from,to,true);
  if(path===null)return {label:"Родство не установлено",source:"Нет цепочки"};
  if(!path.length)return {label:"Это один человек",source:""};
  const seq=path.map(x=>x.move).join("/");
- const other=get(to);
+ const other=atDate(get(to));
  const targetSex=(m,f,u)=>genderName(other,m,f,u);
  const last=path.at(-1),lastLink=last.link;
  let name="";
@@ -451,29 +451,39 @@ function kinLabel(from,to){
    gdown:targetSex("крестник","крестница","крестник"),
    explicit: lastLink.a===from?(lastLink.customA||lastLink.note||"Родственник"):(lastLink.customB||"Родственник")
   };
-  name=map[path[0].move]||"Родственник";
+  name=(lastLink.a===from?lastLink.customA:lastLink.customB)||map[path[0].move]||"Родственник";
+  if(path[0].move==="partner"){
+   const date=data.filters.timeline?data.filters.date:today();
+   if(lastLink.end&&lastLink.end<=date)name=targetSex("бывший супруг / партнёр","бывшая супруга / партнёрша","бывший партнёр");
+  }
  } else {
   const map={
+   "up/down":targetSex("брат","сестра","брат / сестра"),
+   "aup/adown":targetSex("приёмный брат","приёмная сестра","приёмный брат / сестра"),
    "up/up":targetSex("дедушка","бабушка","прародитель"),
    "up/up/up":targetSex("прадедушка","прабабушка","прапрародитель"),
    "down/down":targetSex("внук","внучка","внук/внучка"),
    "down/down/down":targetSex("правнук","правнучка","правнук/правнучка"),
    "up/sibling":targetSex("дядя","тётя","родственник"),
+   "up/up/down":targetSex("дядя","тётя","дядя / тётя"),
    "sibling/down":targetSex("племянник","племянница","племянник/племянница"),
+   "up/down/down":targetSex("племянник","племянница","племянник / племянница"),
    "up/sibling/down":targetSex("двоюродный брат","двоюродная сестра","двоюродный родственник"),
+   "up/up/down/down":targetSex("двоюродный брат","двоюродная сестра","двоюродный родственник"),
    "up/up/sibling/down/down":targetSex("троюродный брат","троюродная сестра","троюродный родственник"),
+   "up/up/up/down/down/down":targetSex("троюродный брат","троюродная сестра","троюродный родственник"),
    "partner/down":targetSex("сын супруга","дочь супруга","ребёнок супруга"),
    "up/partner":targetSex("партнёр родителя","партнёрша родителя","партнёр родителя")
   };
   name=map[seq]||"Родственная цепочка: "+path.length+" шаг.";
-  if(seq==="partner/sibling"){
-   const spouse=get(path[0].to);
+  if(seq==="partner/sibling"||seq==="partner/up/down"){
+   const spouse=atDate(get(path[0].to));
    name=spouse?.sex==="m"?targetSex("деверь","золовка","брат/сестра мужа"):
      spouse?.sex==="f"?targetSex("шурин","свояченица","брат/сестра жены"):
      "Брат/сестра супруга";
   }
   if(seq==="partner/up"){
-   const spouse=get(path[0].to);
+   const spouse=atDate(get(path[0].to));
    name=spouse?.sex==="m"?targetSex("свёкор","свекровь","родитель мужа"):
      spouse?.sex==="f"?targetSex("тесть","тёща","родитель жены"):
      "Родитель супруга";
@@ -482,6 +492,20 @@ function kinLabel(from,to){
  const names=[get(from),...path.map(e=>get(e.to))].map(p=>full(p)).join(" → ");
  const uncertain=path.some(e=>e.move==="explicit")||name.startsWith("Родственная цепочка");
  return {label:name,source:uncertain?"Цепочка требует уточнения":"Вычислено по связям",path:names,hops:path.length};
+}
+function createsAncestryCycle(parent,child,except=null){
+ const children=new Map();
+ for(const link of data.links){
+  if(link.id===except||!["parent","adoptive"].includes(link.kind))continue;
+  if(!children.has(link.a))children.set(link.a,[]);
+  children.get(link.a).push(link.b);
+ }
+ const seen=new Set([child]),queue=[child];
+ for(let i=0;i<queue.length;i++){
+  if(queue[i]===parent)return true;
+  for(const id of children.get(queue[i])||[])if(!seen.has(id)){seen.add(id);queue.push(id);}
+ }
+ return false;
 }
 function bloodDegree(a,b){
  if(a===b)return 0;
@@ -576,6 +600,7 @@ function pathFor(a,b,e){
 function ringsAndSectors(viewRange,background){
  const opts=data.settings,rv=preview?previewInfo:null;
  const ring=opts.rings,sect=opts.sectors;
+ const step=rv?.step??ring.step;
  if(opts.grid.on){
   const g=opts.grid;
   const gapX=g.dx*Math.max(1,Math.ceil((viewRange.right-viewRange.left)/g.dx/180));
@@ -587,7 +612,7 @@ function ringsAndSectors(viewRange,background){
  }
  const maxR=Math.max(...[[viewRange.left,viewRange.top],[viewRange.left,viewRange.bottom],[viewRange.right,viewRange.top],[viewRange.right,viewRange.bottom]].map(([x,y])=>Math.hypot(x,y)));
  if(ring.on||preview){
-  const step=ring.step,skip=Math.max(1,Math.ceil(maxR/step/120));
+  const skip=Math.max(1,Math.ceil(maxR/step/120));
   const radii=ring.individual?ring.radii:Array.from({length:Math.floor(maxR/(step*skip))},(_,i)=>(i+1)*step*skip);
   for(const [idx,r] of radii.entries()){
    if(r>maxR)break;
@@ -605,7 +630,7 @@ function ringsAndSectors(viewRange,background){
   weights.forEach((w,i)=>{
    background.push(`<path d="M 0 0 L ${reach*Math.cos(angle)} ${reach*Math.sin(angle)}" stroke="${sect.color}" stroke-width="${sect.width}" stroke-opacity="${sect.alpha}" fill="none" ${sect.dash?`stroke-dasharray="${h(sect.dash)}"`:""}/>`);
    const mid=angle+Math.PI*w/total;
-   const rr=(ring.individual?ring.radii[0]:ring.step)*.65;
+   const rr=(ring.individual?ring.radii[0]:step)*.65;
    background.push(`<text x="${rr*Math.cos(mid)}" y="${rr*Math.sin(mid)}" font-size="12" fill="${sect.color}" opacity="${sect.alpha}" text-anchor="middle" pointer-events="none">${h(labels[i]||"")}</text>`);
    angle+=2*Math.PI*w/total;
   });
@@ -713,9 +738,9 @@ function profileView(n){
  if(data.group.ringBy==="calls")result+=row("Предложение группировки",callRingReason(n));
  result+=row("Возраст",age(n.birth)?.toString())+row("Категория",n.category)+row("Теги",n.tags.join(", "));
  result+=row("Семейное положение",n.marital==="unknown"?"":statuses.find(([k])=>k===n.marital)?.[1]);
- result+=group("Семья и родство",data.links.filter(e=>family(e)&&(e.a===n.id||e.b===n.id)).map(e=>{
+ result+=group("Семья и родство",data.links.filter(e=>family(e)&&(e.a===n.id||e.b===n.id)&&(!data.filters.timeline||!e.start||e.start<=data.filters.date)).map(e=>{
   const other=get(e.a===n.id?e.b:e.a);
-  return other?`<div class="record"><button class="btn" data-go="${h(other.id)}">${h(full(other))}</button> ${h(kinLabel(n.id,other.id).label)}</div>`:"";
+  return other?`<div class="record"><button class="btn" data-go="${h(other.id)}">${h(full(other))}</button> ${h(kinLabel(n.id,other.id,e).label)}${e.end&&!todayActive(e)?` <small>до ${h(e.end)}</small>`:""}</div>`:"";
  }).join(""));
  result+=group("История общения",n.contacts.map(c=>row([c.date,c.title].filter(Boolean).join(" · "),c.note||c.title)).join(""));
  result+=group("История семейного положения",n.maritalEvents.map(e=>row(e.date,[statuses.find(([k])=>k===e.status)?.[1],e.note].filter(Boolean).join(" · "))).join(""));
@@ -755,6 +780,7 @@ function renderSide(){
   html+=`<div class="pair">${input("Цвет подписи","labelColor",n.labelColor||"#534637","color")}${input("Размер подписи","labelSize",n.labelSize||13,"number",'min="7" max="35"')}</div>`;
   const years=age(n.birth);if(years!==null)html+=`<p class="muted">Возраст: ${years}</p>`;
   html+=`<div class="pair">${input("Диаметр","size",n.size,"number",'min="14" max="180"')}${input("Цвет","color",n.color,"color")}</div>`;
+  html+=input("Цвет контура","stroke",n.stroke,"color");
   html+=`<div class="pair">${input("Прозрачность","alpha",n.alpha,"number",'min=".1" max="1" step=".1"')}${input("Важность 1–5","importance",n.importance,"number",'min="1" max="5"')}</div>`;
   html+=`<div class="pair">${input("Категория","category",n.category)}${input("Теги через запятую","tags",n.tags.join(", "))}</div>`;
   for(const [group,arr] of fields){
@@ -774,7 +800,7 @@ function renderSide(){
   for(const e of direct){
    const otherId=e.a===n.id?e.b:e.a,other=get(otherId);
    if(!other)continue;
-   const info=kinLabel(n.id,otherId);
+   const info=kinLabel(n.id,otherId,e);
    html+=`<div class="record"><button class="smallbtn" data-go="${h(otherId)}">${h(full(other))}</button> <b>${h(info.label)}</b> <span class="muted">${h(e.start||"")} ${e.end?"— "+h(e.end):""}</span><div class="controls"><button class="smallbtn" data-editlink="${h(e.id)}">Связь</button><button class="smallbtn" data-remove-link="${h(e.id)}">Удалить</button></div></div>`;
   }
   const others=data.people.filter(p=>p.id!==n.id);
@@ -872,7 +898,10 @@ function createFamily(){
  else {customA=role==="custom"?(prompt("Название родства:")||"Иное родство"):label;customB="Родственник / родственница";}
  let endDate=end;
  if(role==="exspouse"&&!endDate)endDate=today();
- const duplicate=data.links.some(l=>l.kind===kind&&((l.a===a&&l.b===b)||(l.a===b&&l.b===a))&&l.start===start&&l.end===endDate);
+ if(start&&endDate&&endDate<=start){notify("Дата окончания должна быть позже начала");return;}
+ if(["parent","adoptive"].includes(kind)&&createsAncestryCycle(a,b)){notify("Эта связь создаёт цикл родителей и детей");return;}
+ const symmetric=["sibling","partner"].includes(kind);
+ const duplicate=data.links.some(l=>l.kind===kind&&((l.a===a&&l.b===b)||(symmetric&&l.a===b&&l.b===a))&&l.start===start&&l.end===endDate);
  if(duplicate){notify("Такая связь уже существует");return;}
  remember("Добавлена семейная связь");
  data.links.push({id:id(),a,b,kind,partnerStatus,start,end:endDate,customA,customB,
@@ -892,7 +921,7 @@ function processField(el){
   target=get(selected.id);key=el.dataset.personField;
   value=key==="labelSize"?clamp(el.value,13,7,35):key==="labelColor"?validColor(el.value,"#534637"):key==="pinned"?el.checked:key==="tags"?el.value.split(",").map(x=>x.trim()).filter(Boolean).slice(0,30):
     ["size","alpha","importance"].includes(key)?clamp(el.value,target[key],key==="alpha"?.1:1,key==="size"?180:key==="alpha"?1:5):
-    key==="color"?validColor(el.value):el.value;
+    key==="color"||key==="stroke"?validColor(el.value):el.value;
  }else if(el.dataset.linkField){
   target=getLink(selected.id);key=el.dataset.linkField;
   value=el.type==="checkbox"?el.checked:
@@ -900,7 +929,10 @@ function processField(el){
     key==="color"?validColor(el.value):el.value;
   if(["start","end"].includes(key)){
    const nextStart=key==="start"?value:target.start,nextEnd=key==="end"?value:target.end;
-   if(nextStart&&nextEnd&&nextEnd<=nextStart){notify("Неверный интервал дат");return;}
+   if(nextStart&&nextEnd&&nextEnd<=nextStart){el.value=target[key];notify("Неверный интервал дат");return;}
+  }
+  if(key==="kind"&&["parent","adoptive"].includes(value)&&createsAncestryCycle(target.a,target.b,target.id)){
+   el.value=target.kind;notify("Эта связь создаёт цикл родителей и детей");return;
   }
  }else if(el.dataset.labelField){
   target=getLabel(selected.id);key=el.dataset.labelField;
@@ -1061,6 +1093,7 @@ function commitPreview(){
  data.settings.sectors.labels=previewInfo.labels;
  data.settings.sectors.weights=previewInfo.weights;
  data.settings.sectors.on=true;data.settings.rings.on=true;
+ data.settings.rings.step=previewInfo.step;
  preview=null;previewInfo=null;finish();fit();if(pane==="group")renderRight();
  notify("Группировка применена");
 }
@@ -1141,7 +1174,7 @@ function renderRight(){
     <label class="field">Показывать соседей на расстоянии<select data-filter="hops">${selectHtml([[0,"Без ограничения"],[1,"1 связь"],[2,"2 связи"],[3,"3 связи"],[4,"4 связи"],[5,"5 связей"]],f.hops)}</select></label>
     <hr>${settingToggle("timeline","Временной срез",f.timeline)}
     <label class="field">Дата<input type="date" data-filter="date" value="${h(f.date)}"></label>
-    <p class="muted">Исторический режим учитывает начало/конец связей и даты рождения, но не восстанавливает прежнее содержимое карточек.</p>
+    <p class="muted">Временной срез учитывает даты рождения, периоды связей и сохранённую историю полей карточек.</p>
     <hr><p class="mini-title">Видимые типы связей</p>`;
   for(const [key,name] of [["family","Семейные"],["friend","Друзья"],["work","Работа"],["study","Учёба"],["other","Прочие"]])
    html+=`<p><label><input type="checkbox" data-layer="${key}" ${f.layers[key]?"checked":""}> ${name}</label></p>`;
@@ -1150,6 +1183,7 @@ function renderRight(){
   html+=`<p class="notice">Автогруппировка не меняет семейные связи или свойства людей. Сначала показывается предпросмотр.</p>
     <label class="field">Разделение по секторам<select data-group="sectorBy">${selectHtml([["category","Категория знакомства"],["city","Город проживания"],["job","Профессия"],["tag","Первый тег человека"]],data.group.sectorBy)}</select></label>
     <label class="field">Размещение по окружностям<select data-group="ringBy">${selectHtml([["hops","Число связей от центрального человека"],["importance","Важность (1–5)"],["contact","Время с последнего общения"],["calls","Число разговоров за выбранный период"],["none","Одна окружность"]],data.group.ringBy)}</select></label>
+    <label><input type="checkbox" data-group="visibleOnly" ${data.group.visibleOnly?"checked":""}> Группировать только людей, показанных фильтрами</label>
     <label class="field">Центральный человек<select data-filter="focus">${opt("","Первый человек",f.focus)}${data.people.map(n=>opt(n.id,full(n),f.focus)).join("")}</select></label>
     ${ringControls(s.rings)}
     <p class="muted">Для категорий используются заданные категории карточек, для колец — выбранная числовая характеристика. Узлы распределяются пакетно по секторам и кольцам.</p>`;
@@ -1157,6 +1191,7 @@ function renderRight(){
   if(window.KartaFiles?.analyzeCalls)html+='<button class="btn" data-act="refresh-calls">Обновить статистику звонков</button>';
   html+='<label class="field">Импорт итогов звонков (CSV)<input type="file" accept=".csv,text/csv" id="call-csv"></label><small>Колонки phone,count или phone,count,start,end. Даты периода в формате ГГГГ-ММ-ДД. Импорт заменяет предыдущий набор.</small>';
   if(preview)html+=`<div class="box"><b>Предпросмотр построен</b><p>Групп: ${previewInfo.labels.length}. Кольцевых уровней: ${previewInfo.maxRing}. Возможные пересечения: ${previewInfo.collisions}.</p>
+    ${previewInfo.step!==s.rings.step?`<p>Расстояние между окружностями после применения: ${previewInfo.step}.</p>`:""}
     <div class="controls"><button class="btn primary" data-act="apply-group">Применить</button><button class="btn" data-act="cancel-group">Отменить</button></div></div>`;
   else html+=`<button class="btn primary" data-act="preview-group">◎ Построить предпросмотр</button>`;
  }else if(pane==="path"){
@@ -1210,13 +1245,26 @@ function updateFilter(el){
 }
 function newStatus(){
  const n=get(selected?.id);if(!n)return;
- const code=prompt("Статус: single / married / cohabiting / engaged / separated / divorced / widowed",n.marital||"single");
- if(!code||!statuses.some(s=>s[0]===code)){notify("Неизвестный статус");return;}
- const date=prompt("Дата события (ГГГГ-ММ-ДД)",today())||today();
- const note=prompt("Примечание (необязательно)","")||"";
- remember("Добавлено семейное событие");
- n.maritalEvents.push({id:id(),status:code,date,note});n.marital=code;
- finish(true);
+ const dialog=document.createElement("dialog");
+ dialog.setAttribute("aria-labelledby","status-title");
+ dialog.innerHTML=`<form method="dialog"><h3 id="status-title">Семейное событие</h3>
+   <label class="field">Положение<select name="status">${selectHtml(statuses,n.marital)}</select></label>
+   <label class="field">Дата<input name="date" type="date" value="${today()}" required></label>
+   <label class="field">Примечание<textarea name="note" maxlength="6000"></textarea></label>
+   <button value="add">Добавить</button> <button value="cancel" formnovalidate>Отмена</button></form>`;
+ dialog.onclose=()=>{
+  const fields=dialog.querySelector("form").elements;
+  if(dialog.returnValue==="add"&&get(n.id)===n){
+   remember("Добавлено семейное событие");
+   const {status,date,note}=fields;
+   n.maritalEvents.push({id:id(),status:status.value,date:date.value,note:note.value});
+   const latest=n.maritalEvents.filter(e=>e.date<=today()).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);
+   if(latest)n.marital=latest.status;
+   finish(true);
+  }
+  dialog.remove();
+ };
+ document.body.append(dialog);dialog.showModal();
 }
 function newContact(){
  const n=get(selected?.id);if(!n)return;
@@ -1237,6 +1285,7 @@ const b64=bytes=>{
  return btoa(str);
 };
 const unb64=str=>Uint8Array.from(atob(str),c=>c.charCodeAt(0));
+const maxBackupBytes=128*1024*1024;
 async function cryptKey(password,salt,mode){
  const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveKey"]);
  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:220000,hash:"SHA-256"},material,{name:"AES-GCM",length:256},false,[mode]);
@@ -1250,25 +1299,49 @@ async function encryptedExport(){
   const key=await cryptKey(pass,salt,"encrypt");
   const plain=new TextEncoder().encode(JSON.stringify(data));
   const bytes=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},key,plain));
-  download("karta-svyazey-encrypted.json",JSON.stringify({encrypted:true,version:1,algorithm:"AES-256-GCM",iterations:220000,salt:b64(salt),iv:b64(iv),data:b64(bytes)}),"application/json");
-  notify("Запрошена загрузка зашифрованной копии");
+  const text=JSON.stringify({encrypted:true,version:1,algorithm:"AES-256-GCM",iterations:220000,salt:b64(salt),iv:b64(iv),data:b64(bytes)});
+  if(text.length>maxBackupBytes)throw Error("Размер резервной копии превышает 128 МБ");
+  download("karta-svyazey-encrypted.json",text,"application/json");
+  if(!window.KartaFiles)notify("Запрошена загрузка зашифрованной копии");
  }catch(e){notify("Ошибка шифрования: "+e.message);}
 }
-async function importData(file){
- const target=mapId;
- if(file.size>128*1024*1024){notify("Импорт поддерживает файлы до 128 МБ");return;}
+let backupImportMap=null;
+window.kartaBackupSaved=message=>notify(message);
+function chooseImport(){
+ if(typeof window.KartaFiles?.openBackup!=="function"){$("kv2-import").click();return;}
+ if(backupImportMap!==null)return;
+ backupImportMap=mapId;
+ window.KartaFiles.openBackup();
+}
+window.kartaBackupSelected=async token=>{
+ const target=backupImportMap;
+ try{
+  if(!token||target===null)return;
+  const response=await fetch("/backup/"+encodeURIComponent(token),{cache:"no-store"});
+  if(!response.ok)throw Error("Файл недоступен");
+  await importData(await response.blob(),target);
+ }catch(e){notify("Не удалось прочитать резервную копию. Проверьте доступ и размер файла (до 128 МБ).");}
+ finally{backupImportMap=null;}
+};
+async function importData(file,target=mapId){
+ if(file.size>maxBackupBytes){notify("Импорт поддерживает файлы до 128 МБ");return;}
  try{
   let raw=JSON.parse(await file.text());
-  if(raw.encrypted){
+  if(raw?.encrypted===true){
    if(!crypto?.subtle)throw Error("Web Crypto недоступен");
+   if(raw.version!==1||raw.algorithm!=="AES-256-GCM"||raw.iterations!==220000||
+      ![raw.salt,raw.iv,raw.data].every(value=>typeof value==="string"))throw Error("Неизвестный формат шифрования");
+   const salt=unb64(raw.salt),iv=unb64(raw.iv),cipher=unb64(raw.data);
+   if(salt.length!==16||iv.length!==12||cipher.length<16)throw Error("Повреждена резервная копия");
    const password=await askSecret("Расшифровать резервную копию");
    if(password===null)return;
-   const salt=unb64(raw.salt),iv=unb64(raw.iv),cipher=unb64(raw.data);
-   if(salt.length!==16||iv.length!==12||raw.iterations!==220000)throw Error("Неизвестный формат шифрования");
    const key=await cryptKey(password,salt,"decrypt");
-   raw=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv},key,cipher)));
+   let bytes;
+   try{bytes=await crypto.subtle.decrypt({name:"AES-GCM",iv},key,cipher);}
+   catch{throw Error("Пароль неверен или резервная копия повреждена");}
+   raw=JSON.parse(new TextDecoder().decode(bytes));
   }
-  if(target!==mapId||switching)throw Error("Активная карта изменилась");
+  if(target!==mapId||switching||editingBase)throw Error("Завершите редактирование и повторите импорт в нужной карте");
   const next=validate(raw);
   if(data.people.length&&!confirm("Заменить текущий граф?"))return;
   root.inert=true;
@@ -1413,7 +1486,7 @@ const actions={
  "find-path":showPath,"clear-path":()=>{route=[];draw();const out=$("kv2-path-result");if(out)out.textContent="Маршрут скрыт.";},
  "clear-filters":()=>{data.filters={...initial().filters};persist();draw();renderRight();},
  export:()=>download("karta-svyazey-v2.json",JSON.stringify(data,null,2),"application/json"),
- "encrypted-export":encryptedExport,import:()=>$("kv2-import").click(),
+ "encrypted-export":encryptedExport,import:chooseImport,
  html:()=>{
   download("karta-svyazey-2.1.html",`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Карта связей</title><style>html,body{margin:0;background:#f9f3eb}#kv2{height:100dvh!important;border:0;border-radius:0}#kv2 .maps{display:flex;align-items:center;gap:5px;height:44px;box-sizing:border-box;padding:3px 8px;overflow:auto;background:#f6f3ef;white-space:nowrap}
 #kv2 .maps [aria-pressed=true]{background:#503e32;color:white}
@@ -1496,7 +1569,7 @@ $("kv2-right-body").addEventListener("change",ev=>{
  if(e.dataset.layer){
   data.filters.layers[e.dataset.layer]=e.checked;route=[];persist();draw();
  }
- if(e.dataset.group){data.group[e.dataset.group]=e.value;preview=null;previewInfo=null;persist();draw();renderRight();}
+ if(e.dataset.group){data.group[e.dataset.group]=e.type==="checkbox"?e.checked:e.value;preview=null;previewInfo=null;persist();draw();renderRight();}
 });
 $("kv2-import").addEventListener("change",async ev=>{
  const file=ev.target.files?.[0];ev.target.value="";if(file)await importData(file);

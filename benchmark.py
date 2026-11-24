@@ -2,14 +2,14 @@
 import json
 import os
 import time
-from pathlib import Path
 from playwright.sync_api import sync_playwright
+from test_support import editor_url
 
 with sync_playwright() as pw:
     browser = pw.chromium.launch(executable_path=os.environ.get("CHROMIUM"))
     for size in (100, 1000, 5000):
         p = browser.new_page(viewport={"width":1280, "height":800})
-        p.goto(Path("Karta-2.1.html").resolve().as_uri())
+        p.goto(editor_url())
         p.wait_for_function("!document.querySelector('#kv2').inert")
         people = [dict(id=str(i), name=f"Человек {i}", x=i%100*65, y=i//100*65,
                        category="Автоматически") for i in range(size)]

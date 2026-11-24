@@ -1,12 +1,12 @@
 import json,math,os
-from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
+from test_support import editor_url
 
 with sync_playwright() as pw:
     browser=pw.chromium.launch(executable_path=os.environ.get("CHROMIUM"))
     p=browser.new_page(viewport={"width":1400,"height":900})
     p.on("dialog",lambda d:d.accept())
-    p.goto(Path("Karta-2.1.html").resolve().as_uri())
+    p.goto(editor_url())
     p.wait_for_function("!document.querySelector('#kv2').inert")
     def act(a): p.locator(f'[data-act="{a}"]:visible').first.click()
     def edit(sel,value):

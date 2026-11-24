@@ -1,5 +1,8 @@
 name: Signed Android release
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
 permissions:
   contents: read
 jobs:
@@ -16,16 +19,22 @@ jobs:
         env:
           KARTA_KEY_BASE64: ${{ secrets.KARTA_KEY_BASE64 }}
           KARTA_KEY_PASSWORD: ${{ secrets.KARTA_KEY_PASSWORD }}
-          KARTA_CERT_SHA256: ${{ vars.KARTA_CERT_SHA256 }}
+          KARTA_KEY_ALIAS: ${{ vars.KARTA_KEY_ALIAS }}
+          KARTA_KEY_PASSWORD_OVERRIDE: ${{ secrets.KARTA_KEY_PASSWORD_OVERRIDE }}
         run: |
           set -euo pipefail
           umask 077
           export KARTA_KEYSTORE="$RUNNER_TEMP/release.p12" KARTA_PASSFILE="$RUNNER_TEMP/keypass"
-          trap 'rm -f "$KARTA_KEYSTORE" "$KARTA_PASSFILE"' EXIT
+          trap 'rm -f "$KARTA_KEYSTORE" "$KARTA_PASSFILE" "${KARTA_KEY_PASSFILE:-}"' EXIT
           printf %s "${KARTA_KEY_BASE64:?}" | base64 -d > "$KARTA_KEYSTORE"
           printf %s "${KARTA_KEY_PASSWORD:?}" > "$KARTA_PASSFILE"
+          if [[ -n "$KARTA_KEY_PASSWORD_OVERRIDE" ]]; then
+            export KARTA_KEY_PASSFILE="$RUNNER_TEMP/signing-pass"
+            printf %s "$KARTA_KEY_PASSWORD_OVERRIDE" > "$KARTA_KEY_PASSFILE"
+          fi
           bash android/build-test.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Karta-2.4-release
-          path: Karta-2.4.apk
+          name: Karta-2.5.0-signed-Android
+          path: Karta-2.5.0.apk
+          if-no-files-found: error

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Карта связей
+Name[en]=Karta Relationships
+Comment=Автономная карта знакомств и родственных связей
+Exec=karta
+Icon=karta
+Terminal=false
+Categories=Office;

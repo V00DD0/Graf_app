@@ -40,6 +40,31 @@ public class DeviceTest extends Instrumentation {
         }
         throw new AssertionError("System contact picker did not appear");
     }
+    private void waitForFiles() throws Exception{
+        for(int i=0;i<100;i++){
+            AccessibilityNodeInfo root=getUiAutomation().getRootInActiveWindow();
+            if(root!=null&&root.getPackageName()!=null&&root.getPackageName().toString().contains("documentsui"))return;
+            Thread.sleep(200);
+        }
+        throw new AssertionError("System file picker did not appear");
+    }
+    private void testBackup() throws Exception{
+        String menu="document.querySelector('[data-act=more]').click();";
+        eval(menu+"document.querySelector('[data-act=encrypted-export]').click()");
+        await("!!document.querySelector('dialog')");
+        eval("{const form=document.querySelector('dialog form');form.elements.secret.value='Backup7!';form.elements.confirmation.value='Backup7!';form.querySelector('[value=ok]').click()}");
+        waitForFiles();clickText("Save");
+        await("document.getElementById('kv2-toast').textContent.includes('сохранена и проверена')");
+        eval("window.qaRestoreCancelled=false;const selectedBackup=window.kartaBackupSelected;window.kartaBackupSelected=(token)=>{window.qaRestoreCancelled=token===null;return selectedBackup(token)};document.querySelector('[data-act=import]').click()");
+        waitForFiles();sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
+        await("window.qaRestoreCancelled===true");
+        eval("document.querySelector('[data-act=import]').click()");
+        waitForFiles();clickText("karta-svyazey-encrypted.json");
+        await("document.querySelector('dialog')?.textContent.includes('Расшифровать резервную копию')===true");
+        eval("{const form=document.querySelector('dialog form');form.elements.secret.value='Backup7!';form.querySelector('[value=ok]').click()}");
+        clickText("OK");
+        await("document.getElementById('kv2-toast').textContent.includes('Загружено')&&document.querySelector('svg').textContent.includes('Upgrade marker')");
+    }
     @Override public void onStart(){
         Bundle out=new Bundle();
         try{
@@ -57,6 +82,10 @@ public class DeviceTest extends Instrumentation {
                 out.putString("stream","PASS: upgrade seed");finish(Activity.RESULT_OK,out);return;
             }
             await("document.querySelector('svg').textContent.includes('Upgrade marker')");
+            if("backup".equals(mode)){
+                testBackup();
+                out.putString("stream","PASS: SAF backup write, checksum, cancellation and AES-GCM restore");finish(Activity.RESULT_OK,out);return;
+            }
             if("denied".equals(mode)){
                 eval("window.qaCancelled=false;const oldCancel=window.kartaPickCancelled;window.kartaPickCancelled=()=>{oldCancel();window.qaCancelled=true};document.querySelector('[data-act=more]').click();document.querySelector('[data-act=pick-calls]').click()");
                 waitForPicker();

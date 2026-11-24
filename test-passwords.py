@@ -1,13 +1,16 @@
 """Exercise password setup, encrypted export/import and local unlock in the browser."""
+import base64
+import json
 import os
 from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
+from test_support import editor_url
 
 with sync_playwright() as pw:
     browser = pw.chromium.launch(executable_path=os.environ.get("CHROMIUM"))
     page = browser.new_page(accept_downloads=True)
     page.on("dialog", lambda dialog: dialog.accept())
-    page.goto(Path(__file__).with_name("Karta-2.1.html").resolve().as_uri())
+    page.goto(editor_url())
 
     def act(name):
         page.locator(f'[data-act="{name}"]:visible').first.click()
@@ -35,9 +38,20 @@ with sync_playwright() as pw:
     with page.expect_download() as encrypted:
         submit.click()
     backup=Path(encrypted.value.path()).read_bytes()
-    page.locator("#kv2-import").set_input_files({"name":"copy.json","mimeType":"application/json","buffer":backup})
-    expect(confirmation).to_have_count(0)
-    password.fill(valid); submit.click()
+    def restore(payload, secret):
+        page.locator("#kv2-import").set_input_files({"name":"copy.json","mimeType":"application/json","buffer":payload})
+        expect(confirmation).to_have_count(0)
+        password.fill(secret); submit.click()
+    restore(backup, "wrong password")
+    expect(page.locator("#kv2-toast")).to_contain_text("Пароль неверен или резервная копия повреждена")
+    damaged = json.loads(backup)
+    cipher = bytearray(base64.b64decode(damaged["data"]))
+    cipher[-1] ^= 1
+    damaged["data"] = base64.b64encode(cipher).decode()
+    restore(json.dumps(damaged).encode(), valid)
+    expect(page.locator("#kv2-toast")).to_contain_text("Пароль неверен или резервная копия повреждена")
+    expect(page.locator(".node")).to_have_count(1)
+    restore(backup, valid)
     expect(page.locator("#kv2-toast")).to_contain_text("Загружено")
     act("more"); act("protect-local")
     password.fill(valid); confirmation.fill(valid); submit.click()
@@ -45,4 +59,4 @@ with sync_playwright() as pw:
     page.reload(); expect(confirmation).to_have_count(0)
     password.fill(valid); submit.click()
     expect(page.locator(".node")).to_have_count(1)
-    print("PASS: composition, eight Cyrillic characters, reveal/hide, confirmation, backup roundtrip and local unlock")
+    print("PASS: password validation, backup roundtrip, wrong password, damaged backup and local unlock")

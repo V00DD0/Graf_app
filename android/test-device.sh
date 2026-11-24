@@ -13,6 +13,7 @@ test_mode(){
 }
 test_mode seed
 adb install --no-incremental -r Karta-2.4-test.apk
+test_mode backup
 # Insert only fictional fixture data on the disposable emulator.
 adb shell content insert --uri content://com.android.contacts/raw_contacts --bind account_type:s:local --bind account_name:s:karta-qa
 raw=$(adb shell content query --uri content://com.android.contacts/raw_contacts --projection _id --where "account_name=\'karta-qa\'" | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | tail -1)

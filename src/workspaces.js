@@ -1,13 +1,12 @@
-// The original graph keeps the keys used by versions 2.1–2.3.
 let mapId="home", saveError="", switching=false;
 const mapNames=new Map([["home","Основная карта"]]), histories=new Map();
 const hiddenMaps=new Set();
 function rememberTabs(){
- try{sessionStorage.setItem("karta-tabs",JSON.stringify({active:mapId,hidden:[...hiddenMaps]}));}catch{}
+ try{sessionStorage.setItem("karta-standalone-tabs",JSON.stringify({active:mapId,hidden:[...hiddenMaps]}));}catch{}
 }
 function restoreTabs(){
  try{
-  const state=JSON.parse(sessionStorage.getItem("karta-tabs"));
+  const state=JSON.parse(sessionStorage.getItem("karta-standalone-tabs"));
   for(const key of state?.hidden||[])if(mapNames.has(key))hiddenMaps.add(key);
   if(mapNames.has(state?.active)){hiddenMaps.delete(state.active);return state.active;}
  }catch{}
@@ -42,8 +41,7 @@ async function readMap(id){
   const bytes=await crypto.subtle.decrypt({name:"AES-GCM",iv:stored.iv},key,stored.cipher);
   graph=validate(JSON.parse(new TextDecoder().decode(bytes)));
  }else{
-  const source=stored??(id==="home"?(localStorage.getItem(STORAGE)??localStorage.getItem("relationship-map-v1")):null);
-  graph=source?validate(JSON.parse(source)):initial();
+  graph=stored?validate(JSON.parse(stored)):initial();
  }
  return {graph,key,salt,revision};
 }

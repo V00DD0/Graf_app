@@ -1,8 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="local.karta.preview24" android:versionCode="27" android:versionName="2.5.0">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="local.karta.standalone" android:versionCode="27" android:versionName="2.5.0">
  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
  <uses-permission android:name="android.permission.READ_CALL_LOG"/>
  <uses-feature android:name="android.hardware.telephony" android:required="false"/>
- <application android:label="Карта связей" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+ <application android:label="Карта связей Standalone" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
   <activity android:name="local.karta.app.MainActivity" android:configChanges="orientation|screenSize|keyboardHidden" android:exported="true">
    <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
   </activity>

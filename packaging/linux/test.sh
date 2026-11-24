@@ -11,20 +11,26 @@ printf '%s\n' "$1"
 LAUNCHER
 chmod 755 "$tmp/bin/xdg-open"
 export PATH="$tmp/bin:$PATH" XDG_DATA_HOME="$tmp/user data"
-page="$XDG_DATA_HOME/karta/Karta-2.1.html"
+page="$XDG_DATA_HOME/karta-standalone/Karta-2.1.html"
+legacy="$XDG_DATA_HOME/karta/Karta-2.1.html"
+mkdir -p "$(dirname "$legacy")"
+printf '%s\n' 'Previous installation' > "$legacy"
 
-if [[ -f dist/Karta-2.5.0-all.deb ]]; then
-    dpkg-deb -x dist/Karta-2.5.0-all.deb "$tmp/deb"
-    [[ $(KARTA_APPDIR="$tmp/deb/usr/share/karta" "$tmp/deb/usr/bin/karta") == "$page" ]]
+if [[ -f dist/Karta-Standalone-2.5.0-all.deb ]]; then
+    [[ $(dpkg-deb -f dist/Karta-Standalone-2.5.0-all.deb Package) == karta-svyazey-standalone ]]
+    dpkg-deb -x dist/Karta-Standalone-2.5.0-all.deb "$tmp/deb"
+    [[ $(KARTA_APPDIR="$tmp/deb/usr/share/karta-standalone" "$tmp/deb/usr/bin/karta-standalone") == "$page" ]]
     cmp "$page" Karta-2.1.html
 fi
-if [[ -f dist/Karta-2.5.0-noarch.rpm ]]; then
-    (cd "$tmp/rpm" && rpm2cpio "$root/dist/Karta-2.5.0-noarch.rpm" | cpio -idm --quiet)
-    [[ $(KARTA_APPDIR="$tmp/rpm/usr/share/karta" "$tmp/rpm/usr/bin/karta") == "$page" ]]
+if [[ -f dist/Karta-Standalone-2.5.0-noarch.rpm ]]; then
+    [[ $(rpm -qp --qf '%{NAME}' dist/Karta-Standalone-2.5.0-noarch.rpm) == karta-svyazey-standalone ]]
+    (cd "$tmp/rpm" && rpm2cpio "$root/dist/Karta-Standalone-2.5.0-noarch.rpm" | cpio -idm --quiet)
+    [[ $(KARTA_APPDIR="$tmp/rpm/usr/share/karta-standalone" "$tmp/rpm/usr/bin/karta-standalone") == "$page" ]]
     cmp "$page" Karta-2.1.html
 fi
-if [[ -f dist/Karta-2.5.0-x86_64.AppImage ]]; then
-    [[ $(dist/Karta-2.5.0-x86_64.AppImage --appimage-extract-and-run) == "$page" ]]
+if [[ -f dist/Karta-Standalone-2.5.0-x86_64.AppImage ]]; then
+    [[ $(dist/Karta-Standalone-2.5.0-x86_64.AppImage --appimage-extract-and-run) == "$page" ]]
     cmp "$page" Karta-2.1.html
 fi
-printf 'PASS: packaged launchers open the same offline editor at a stable URL\n'
+[[ $(cat "$legacy") == 'Previous installation' ]]
+printf 'PASS: packaged launchers use a separate stable data path\n'

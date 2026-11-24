@@ -1,5 +1,5 @@
 #!/bin/sh
 set -eu
-KARTA_APPDIR=$(dirname "$(readlink -f "$0")")/usr/share/karta
+KARTA_APPDIR=$(dirname "$(readlink -f "$0")")/usr/share/karta-standalone
 export KARTA_APPDIR
-exec "$KARTA_APPDIR/../../bin/karta" "$@"
+exec "$KARTA_APPDIR/../../bin/karta-standalone" "$@"

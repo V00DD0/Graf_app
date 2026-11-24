@@ -1,5 +1,6 @@
 """Install the distributed APK over the original 2.2 APK on the disposable emulator."""
 from pathlib import Path
+import argparse
 import re
 import subprocess
 import time
@@ -32,6 +33,13 @@ def tap(node):
     adb("shell","input","tap",str((left+right)//2),str((top+bottom)//2))
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verify-only", action="store_true")
+    if parser.parse_args().verify_only:
+        start()
+        find("1/1 людей")
+        print("PASS: published APK still opens its original map alongside the standalone APK")
+        raise SystemExit(0)
     downloads=Path(__file__).resolve().parents[1]/"downloads"
     adb("install","--no-incremental","-r",str(downloads/"Karta-2.2-test.apk"))
     start()

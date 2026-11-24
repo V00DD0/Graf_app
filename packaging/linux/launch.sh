@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-app_dir=${KARTA_APPDIR:-/usr/share/karta}
-data_dir=${XDG_DATA_HOME:-"$HOME/.local/share"}/karta
+app_dir=${KARTA_APPDIR:-/usr/share/karta-standalone}
+data_dir=${XDG_DATA_HOME:-"$HOME/.local/share"}/karta-standalone
 page=$data_dir/Karta-2.1.html
 umask 077
 mkdir -p "$data_dir"

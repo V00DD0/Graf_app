@@ -1,4 +1,4 @@
-Name: karta-svyazey
+Name: karta-svyazey-standalone
 Version: %{karta_version}
 Release: 1
 Summary: Offline relationship map editor
@@ -15,7 +15,7 @@ mkdir -p "%{buildroot}"
 cp -a "%{karta_files}/usr" "%{buildroot}/"
 
 %files
-/usr/bin/karta
-/usr/share/karta
-/usr/share/applications/karta.desktop
-/usr/share/icons/hicolor/128x128/apps/karta.png
+/usr/bin/karta-standalone
+/usr/share/karta-standalone
+/usr/share/applications/karta-standalone.desktop
+/usr/share/icons/hicolor/128x128/apps/karta-standalone.png

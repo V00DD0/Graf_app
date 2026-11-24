@@ -1,7 +1,7 @@
-name: Build and verify Karta packages
+name: Build and verify Karta Standalone
 on:
   push:
-    branches: [main, 'feature/**']
+    branches: [feature/standalone-installers]
   workflow_dispatch:
 env:
   PYTHONUTF8: '1'
@@ -34,20 +34,26 @@ jobs:
           if (!(Test-Path $nsis)) { choco install nsis --yes --no-progress }
           & $nsis packaging/windows/Karta.nsi
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $install = Join-Path $env:RUNNER_TEMP 'Карта связей'
-          $setup = Start-Process -FilePath packaging/windows/Karta-2.5.0-Windows.exe -ArgumentList @('/S', "/D=$install") -Wait -PassThru
+          $legacy = Join-Path $env:LOCALAPPDATA 'Karta'
+          New-Item -ItemType Directory -Path $legacy -Force | Out-Null
+          $marker = Join-Path $legacy 'Karta-2.1.html'
+          Set-Content -Path $marker -Value 'Previous installation'
+          $install = Join-Path $env:LOCALAPPDATA 'KartaStandalone'
+          $setup = Start-Process -FilePath packaging/windows/Karta-Standalone-2.5.0-Windows.exe -ArgumentList '/S' -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "Installer exit code: $($setup.ExitCode)" }
+          if ((Get-Content $marker) -ne 'Previous installation') { throw 'Previous installation was changed' }
+          if (!(Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\KartaStandalone')) { throw 'Standalone registration is missing' }
           foreach ($name in 'Karta.exe','Karta-2.1.html') {
             if ((Get-FileHash (Join-Path $install $name)).Hash -ne (Get-FileHash $name).Hash) { throw "Unexpected installed file: $name" }
           }
-          Compress-Archive Karta.exe,Karta-2.1.html Karta-2.5.0-Windows-portable.zip
+          Compress-Archive Karta.exe,Karta-2.1.html Karta-Standalone-2.5.0-Windows-portable.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: Karta-2.5.0-Windows
+          name: Karta-Standalone-2.5.0-Windows
           if-no-files-found: error
           path: |
-            packaging/windows/Karta-2.5.0-Windows.exe
-            Karta-2.5.0-Windows-portable.zip
+            packaging/windows/Karta-Standalone-2.5.0-Windows.exe
+            Karta-Standalone-2.5.0-Windows-portable.zip
       - name: Verify the launcher with a different working directory
         shell: pwsh
         run: ./check-launcher.ps1
@@ -72,7 +78,7 @@ jobs:
           bash packaging/linux/test.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Karta-2.5.0-Linux
+          name: Karta-Standalone-2.5.0-Linux
           path: dist/
           if-no-files-found: error
       - name: Run browser and load tests
@@ -84,25 +90,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - run: python3 build.py && git diff --exit-code -- Karta-2.1.html
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
       - run: bash android/build-test.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Karta-2.5.0-Android-test
-          path: Karta-2.5.0-preview.apk
-          if-no-files-found: error
       - name: Enable hardware acceleration for the test emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Verify upgrades, backups and call statistics on Android
+      - name: Verify coexistence, backups and call statistics on Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34

@@ -31,7 +31,7 @@ with sync_playwright() as pw:
         def wait_saved(predicate):
             limit=now()+10
             while now()<limit:
-                if p.evaluate("""async predicate=>{const db=await new Promise(r=>{const q=indexedDB.open('karta-svyazey-2.1');q.onsuccess=()=>r(q.result)});
+                if p.evaluate("""async predicate=>{const db=await new Promise(r=>{const q=indexedDB.open('karta-standalone-2.5');q.onsuccess=()=>r(q.result)});
             try{return await new Promise(r=>{const q=db.transaction('graphs').objectStore('graphs').get('current');q.onsuccess=()=>{
              const g=JSON.parse(q.result);r(predicate==='moved'?g.people[0].x!==0:predicate==='undo'?g.people[0].x===0:g.view.k>1)
             }})}finally{db.close()}}""",predicate):

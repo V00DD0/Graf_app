@@ -1,13 +1,11 @@
-name: Signed Android release
+name: Signed standalone Android release
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*']
 permissions:
   contents: read
 jobs:
   build:
-    environment: android-release
+    environment: android-standalone
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +33,6 @@ jobs:
           bash android/build-test.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Karta-2.5.0-signed-Android
-          path: Karta-2.5.0.apk
+          name: Karta-Standalone-2.5.0-signed-Android
+          path: Karta-Standalone-2.5.0.apk
           if-no-files-found: error

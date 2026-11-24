@@ -9,12 +9,30 @@ with sync_playwright() as pw:
  p=b.new_page(viewport={'width':1280,'height':800},accept_downloads=True)
  errors=[];p.on('pageerror',lambda e:errors.append(str(e)));p.on('dialog',lambda d:d.accept())
  p.goto(editor_url());p.wait_for_function('!document.querySelector("#kv2").inert')
+ # Both editions may share a browser origin when opened from local files.
+ p.evaluate("""async () => {
+   const legacy={version:3,people:[{id:'legacy',name:'Original map',x:0,y:0}],links:[]};
+   const db=await new Promise((resolve,reject)=>{
+     const request=indexedDB.open('karta-svyazey-2.1',1);
+     request.onupgradeneeded=()=>request.result.createObjectStore('graphs');
+     request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+   });
+   await new Promise((resolve,reject)=>{
+     const tx=db.transaction('graphs','readwrite');
+     tx.objectStore('graphs').put(JSON.stringify(legacy),'current');
+     tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+   });
+   db.close();
+   localStorage.setItem('karta-svyazey-v2',JSON.stringify(legacy));
+ }""")
+ p.reload();p.wait_for_function('!document.querySelector("#kv2").inert')
+ assert p.locator('.node').count()==0, 'Standalone opened the previous edition’s map'
  def act(k):p.locator('[data-act="'+k+'"]:visible').first.click()
  def person():p.locator('.node text',has_text='Кузнецова Анна').first.click()
  def state():
   p.wait_for_timeout(300)
   return p.evaluate("""async () => {
-   const db=await new Promise(resolve=>{const req=indexedDB.open('karta-svyazey-2.1');req.onsuccess=()=>resolve(req.result)});
+   const db=await new Promise(resolve=>{const req=indexedDB.open('karta-standalone-2.5');req.onsuccess=()=>resolve(req.result)});
    const value=await new Promise(resolve=>{const req=db.transaction('graphs').objectStore('graphs').get('current');req.onsuccess=()=>resolve(req.result)});
    db.close();return JSON.parse(value)
   }""")

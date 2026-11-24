@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Карта связей
-Name[en]=Karta Relationships
+Name=Карта связей Standalone
+Name[en]=Karta Relationships Standalone
 Comment=Автономная карта знакомств и родственных связей
-Exec=karta
-Icon=karta
+Exec=karta-standalone
+Icon=karta-standalone
 Terminal=false
 Categories=Office;

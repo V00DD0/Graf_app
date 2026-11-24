@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 python3 android/test-upgrade.py
-pkg=local.karta.preview24
-adb install --no-incremental -r Karta-upgrade-2.3.apk
+pkg=local.karta.standalone
+adb install --no-incremental Karta-Standalone-2.5.0-test.apk
 adb install --no-incremental -r Karta-device-test.apk
 test_mode(){
  adb shell am instrument -w -e mode "$1" local.karta.qa/local.karta.qa.DeviceTest | tee device-result.txt
@@ -11,11 +11,8 @@ test_mode(){
   return 1
  fi
 }
-test_mode seed-23
-adb install --no-incremental -r Karta-upgrade-2.4.apk
-test_mode seed-24
-adb install --no-incremental -r Karta-2.5.0-preview.apk
-test_mode verify-upgrade
+test_mode fresh-install
+python3 android/test-upgrade.py --verify-only
 test_mode backup
 # Insert only fictional fixture data on the disposable emulator.
 adb shell content insert --uri content://com.android.contacts/raw_contacts --bind account_type:s:local --bind account_name:s:karta-qa

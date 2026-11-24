@@ -8,7 +8,7 @@ from test_support import editor_url
 def graph(page):
     return page.evaluate("""async () => {
       const db=await new Promise(resolve=>{
-        const q=indexedDB.open('karta-svyazey-2.1');q.onsuccess=()=>resolve(q.result);
+        const q=indexedDB.open('karta-standalone-2.5');q.onsuccess=()=>resolve(q.result);
       });
       const transaction=db.transaction('graphs');
       const q=transaction.objectStore('graphs').get('current');

@@ -6,7 +6,7 @@ const interfacePalettes=[
  {name:"Бордо",base:"#442834",accent:"#edc4ac"}
 ];
 const openedAppearanceSections=new Set();
-const themeStorage="karta-interface-theme-v1";
+const themeStorage="karta-standalone-interface-theme-v1";
 function readInterfaceTheme(){
  let saved;
  try{saved=JSON.parse(localStorage.getItem(themeStorage));}catch{}
